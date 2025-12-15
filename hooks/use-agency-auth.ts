@@ -31,9 +31,20 @@ export function useAgencyAuth(options: UseAgencyAuthOptions = {}): UseAgencyAuth
   useEffect(() => {
     async function fetchData() {
       try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser()
+        if (!supabase) {
+          throw new Error("Supabase client not initialized")
+        }
+
+        const authResponse = await supabase.auth.getUser()
+
+        if (authResponse.error) {
+          console.error("Auth error:", authResponse.error)
+          setLoading(false)
+          router.push("/agence/login")
+          return
+        }
+
+        const authUser = authResponse.data?.user
 
         if (!authUser) {
           setLoading(false)
@@ -56,6 +67,7 @@ export function useAgencyAuth(options: UseAgencyAuthOptions = {}): UseAgencyAuth
         }
       } catch (error) {
         console.error("Error fetching agency auth:", error)
+        router.push("/agence/login")
       } finally {
         setLoading(false)
       }
