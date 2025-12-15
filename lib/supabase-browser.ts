@@ -8,22 +8,18 @@ const SUPABASE_ANON_KEY =
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
 
 export function createClient() {
-  // Only create in browser environment
   if (typeof window === "undefined") {
-    console.log("[v0] createClient called on server - returning null-safe client")
-    // Return a minimal client for SSR that won't crash
+    // SSR: create fresh client each time (won't persist anyway)
     return createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY)
   }
 
+  // Browser: use singleton
   if (!browserClient) {
-    console.log("[v0] Creating new Supabase browser client")
     browserClient = createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY)
-    console.log("[v0] Browser client created:", !!browserClient, "auth:", !!browserClient?.auth)
-  } else {
-    console.log("[v0] Reusing existing Supabase browser client")
   }
 
   return browserClient
 }
 
+// Alias for backward compatibility
 export const createBrowserSupabaseClient = createClient

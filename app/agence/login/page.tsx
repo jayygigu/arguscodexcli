@@ -19,15 +19,9 @@ export default function LoginPage() {
     setLoading(true)
     setError("")
 
-    console.log("[v0] Login attempt started")
-
     try {
       const supabase = createClient()
-      console.log("[v0] Supabase client created:", !!supabase)
-      console.log("[v0] Supabase auth exists:", !!supabase?.auth)
-
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-      console.log("[v0] signInWithPassword result - data:", !!data, "error:", authError?.message)
 
       if (authError) {
         if (authError.message.includes("Invalid login credentials")) {
@@ -41,11 +35,8 @@ export default function LoginPage() {
         return
       }
 
-      console.log("[v0] Login successful, session:", !!data?.session)
-      console.log("[v0] Redirecting to /agence/dashboard")
       window.location.href = "/agence/dashboard"
     } catch (err) {
-      console.error("[v0] Login exception:", err)
       setError("Une erreur inattendue s'est produite")
       setLoading(false)
     }
