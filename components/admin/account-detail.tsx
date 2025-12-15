@@ -2,28 +2,13 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import {
-  ArrowLeft,
-  Building2,
-  Mail,
-  Phone,
-  MapPin,
-  FileText,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  Shield,
-  Ban,
-  RefreshCw,
-  Save,
-  Loader2,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -32,66 +17,81 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Shield,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  ArrowLeft,
+  Save,
+  Ban,
+  RefreshCw,
+  Loader2,
+} from "lucide-react"
 import { createClient } from "@/lib/supabase-browser"
-import { formatDistanceToNow, format } from "date-fns"
-import { fr } from "date-fns/locale"
-import type { VerificationStatus, VerificationAction } from "@/types/database.types"
+import { toast } from "@/hooks/use-toast"
+
+type VerificationStatus = "pending" | "verified" | "rejected" | "suspended"
+
+interface Agency {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  address?: string
+  city?: string
+  postal_code?: string
+  siret?: string
+  license_number?: string
+  created_at: string
+  verification_status?: VerificationStatus
+  verified_at?: string
+  verified_by?: string
+  rejection_reason?: string
+  identity_verified?: boolean
+  permit_verified?: boolean
+  permit_expiration_date?: string
+  verification_notes?: string
+  re_verification_required?: boolean
+  re_verification_reason?: string
+  last_verification_date?: string
+}
 
 interface AccountDetailProps {
-  agency: any
-  logs: any[]
+  agency: Agency
   currentUserId: string
 }
 
-const statusConfig: Record<VerificationStatus, { label: string; className: string; icon: any }> = {
-  pending: {
-    label: "En attente de vérification",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
-    icon: Clock,
-  },
-  verified: { label: "Compte vérifié", className: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle },
-  rejected: { label: "Compte rejeté", className: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
-  suspended: { label: "Compte suspendu", className: "bg-gray-50 text-gray-700 border-gray-200", icon: Ban },
-  expired: { label: "Permis expiré", className: "bg-orange-50 text-orange-700 border-orange-200", icon: AlertTriangle },
-}
-
-const actionLabels: Record<VerificationAction, string> = {
-  verify: "Compte vérifié",
-  reject: "Compte rejeté",
-  suspend: "Compte suspendu",
-  unsuspend: "Compte réactivé",
-  request_reverification: "Re-vérification demandée",
-  update_permit: "Permis mis à jour",
-  update_expiration: "Date d'expiration modifiée",
-  notes_added: "Notes ajoutées",
-}
-
-export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProps) {
+export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
   const router = useRouter()
   const supabase = createClient()
-
   const [loading, setLoading] = useState(false)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogAction, setDialogAction] = useState<VerificationAction | null>(null)
-  const [reason, setReason] = useState("")
   const [notes, setNotes] = useState(agency.verification_notes || "")
   const [permitExpiration, setPermitExpiration] = useState(agency.permit_expiration_date || "")
   const [identityVerified, setIdentityVerified] = useState(agency.identity_verified || false)
   const [permitVerified, setPermitVerified] = useState(agency.permit_verified || false)
 
-  const status = (agency.verification_status || "pending") as VerificationStatus
-  const StatusIcon = statusConfig[status].icon
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogAction, setDialogAction] = useState<string | null>(null)
+  const [reason, setReason] = useState("")
 
-  const openDialog = (action: VerificationAction) => {
+  const status = (agency.verification_status || "pending") as VerificationStatus
+
+  const openDialog = (action: string) => {
     setDialogAction(action)
     setReason("")
     setDialogOpen(true)
   }
 
-  const executeAction = async () => {
-    if (!dialogAction) return
-
+  const confirmAction = async () => {
     setLoading(true)
+    setDialogOpen(false)
 
     try {
       let newStatus: VerificationStatus | null = null
@@ -110,12 +110,10 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
           newStatus = "verified"
           break
         case "request_reverification":
-          // Keep current status but flag for re-verification
           break
       }
 
-      // Update agency
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       }
 
@@ -142,10 +140,20 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
         updateData.re_verification_reason = reason
       }
 
-      await supabase.from("agencies").update(updateData).eq("id", agency.id)
+      const { error: updateError } = await supabase.from("agencies").update(updateData).eq("id", agency.id)
 
-      // Log the action
-      await supabase.from("verification_logs").insert({
+      if (updateError) {
+        console.error("[v0] Agency update error:", updateError)
+        toast({
+          title: "Erreur",
+          description: `Impossible de mettre à jour l'agence: ${updateError.message}`,
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      const { error: logError } = await supabase.from("verification_logs").insert({
         agency_id: agency.id,
         admin_id: currentUserId,
         action: dialogAction,
@@ -154,12 +162,43 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
         reason: reason || null,
       })
 
-      setDialogOpen(false)
+      if (logError) {
+        console.error("[v0] Verification log error:", logError)
+        // Non-blocking error - just log it
+      }
+
+      toast({
+        title: "Succès",
+        description: getSuccessMessage(dialogAction),
+      })
+
       router.refresh()
     } catch (error) {
-      console.error("Error executing action:", error)
+      console.error("[v0] Verification error:", error)
+      toast({
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getSuccessMessage = (action: string | null): string => {
+    switch (action) {
+      case "verify":
+        return "Le compte a été vérifié avec succès"
+      case "reject":
+        return "Le compte a été rejeté"
+      case "suspend":
+        return "Le compte a été suspendu"
+      case "unsuspend":
+        return "Le compte a été réactivé"
+      case "request_reverification":
+        return "Demande de re-vérification envoyée"
+      default:
+        return "Action effectuée avec succès"
     }
   }
 
@@ -167,13 +206,24 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
     setLoading(true)
 
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from("agencies")
         .update({
           verification_notes: notes,
           updated_at: new Date().toISOString(),
         })
         .eq("id", agency.id)
+
+      if (updateError) {
+        console.error("[v0] Notes save error:", updateError)
+        toast({
+          title: "Erreur",
+          description: `Impossible de sauvegarder les notes: ${updateError.message}`,
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
 
       await supabase.from("verification_logs").insert({
         agency_id: agency.id,
@@ -184,9 +234,19 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
         reason: "Notes de vérification mises à jour",
       })
 
+      toast({
+        title: "Succès",
+        description: "Notes sauvegardées",
+      })
+
       router.refresh()
     } catch (error) {
-      console.error("Error saving notes:", error)
+      console.error("[v0] Error saving notes:", error)
+      toast({
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -196,7 +256,7 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
     setLoading(true)
 
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from("agencies")
         .update({
           permit_expiration_date: permitExpiration || null,
@@ -204,20 +264,74 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
         })
         .eq("id", agency.id)
 
+      if (updateError) {
+        console.error("[v0] Expiration update error:", updateError)
+        toast({
+          title: "Erreur",
+          description: `Impossible de mettre à jour l'expiration: ${updateError.message}`,
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
       await supabase.from("verification_logs").insert({
         agency_id: agency.id,
         admin_id: currentUserId,
         action: "update_expiration",
         previous_status: status,
         new_status: status,
-        reason: `Date d'expiration mise à jour: ${permitExpiration}`,
+        reason: `Date d'expiration mise à jour: ${permitExpiration || "Non définie"}`,
+      })
+
+      toast({
+        title: "Succès",
+        description: "Date d'expiration mise à jour",
       })
 
       router.refresh()
     } catch (error) {
-      console.error("Error updating expiration:", error)
+      console.error("[v0] Error updating expiration:", error)
+      toast({
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getStatusBadge = (s: VerificationStatus) => {
+    switch (s) {
+      case "verified":
+        return (
+          <Badge className="bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Vérifié
+          </Badge>
+        )
+      case "rejected":
+        return (
+          <Badge className="bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
+            Rejeté
+          </Badge>
+        )
+      case "suspended":
+        return (
+          <Badge className="bg-orange-100 text-orange-800">
+            <Ban className="w-3 h-3 mr-1" />
+            Suspendu
+          </Badge>
+        )
+      default:
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            En attente
+          </Badge>
+        )
     }
   }
 
@@ -225,45 +339,45 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
     switch (dialogAction) {
       case "verify":
         return {
-          title: "Valider le compte",
-          description: "Confirmez que vous avez vérifié l'identité et le permis de cette agence.",
-          confirmLabel: "Valider le compte",
-          confirmClass: "bg-green-600 hover:bg-green-700",
+          title: "Vérifier ce compte",
+          description: "Confirmez-vous la vérification de ce compte agence ?",
+          showReason: false,
+          showChecks: true,
         }
       case "reject":
         return {
-          title: "Rejeter le compte",
-          description: "Indiquez la raison du rejet. L'agence sera notifiée.",
-          confirmLabel: "Rejeter le compte",
-          confirmClass: "bg-red-600 hover:bg-red-700",
+          title: "Rejeter ce compte",
+          description: "Veuillez indiquer la raison du rejet.",
+          showReason: true,
+          showChecks: false,
         }
       case "suspend":
         return {
-          title: "Suspendre le compte",
-          description: "Le compte sera désactivé jusqu'à réactivation manuelle.",
-          confirmLabel: "Suspendre le compte",
-          confirmClass: "bg-gray-600 hover:bg-gray-700",
+          title: "Suspendre ce compte",
+          description: "Veuillez indiquer la raison de la suspension.",
+          showReason: true,
+          showChecks: false,
         }
       case "unsuspend":
         return {
-          title: "Réactiver le compte",
-          description: "Le compte sera réactivé et l'agence pourra se connecter.",
-          confirmLabel: "Réactiver le compte",
-          confirmClass: "bg-green-600 hover:bg-green-700",
+          title: "Réactiver ce compte",
+          description: "Confirmez-vous la réactivation de ce compte ?",
+          showReason: false,
+          showChecks: false,
         }
       case "request_reverification":
         return {
           title: "Demander une re-vérification",
-          description: "L'agence devra soumettre de nouveaux documents.",
-          confirmLabel: "Demander re-vérification",
-          confirmClass: "bg-amber-600 hover:bg-amber-700",
+          description: "Veuillez indiquer la raison de la demande de re-vérification.",
+          showReason: true,
+          showChecks: false,
         }
       default:
         return {
           title: "",
           description: "",
-          confirmLabel: "",
-          confirmClass: "",
+          showReason: false,
+          showChecks: false,
         }
     }
   }
@@ -271,348 +385,257 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
   const dialogContent = getDialogContent()
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/accounts">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-montserrat font-bold text-foreground">{agency.name}</h1>
-              <Badge variant="outline" className={statusConfig[status].className}>
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {statusConfig[status].label}
-              </Badge>
-              {agency.re_verification_required && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Re-vérification requise
-                </Badge>
-              )}
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Retour
+        </Button>
+        <h1 className="text-2xl font-bold">{agency.name}</h1>
+        {getStatusBadge(status)}
+        {agency.re_verification_required && (
+          <Badge variant="outline" className="border-orange-500 text-orange-500">
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Re-vérification requise
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Informations générales */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Informations générales
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <span>{agency.email}</span>
             </div>
-            <p className="text-muted-foreground font-urbanist mt-1">
-              Inscrit {formatDistanceToNow(new Date(agency.created_at), { addSuffix: true, locale: fr })}
-            </p>
-          </div>
-        </div>
+            {agency.phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                <span>{agency.phone}</span>
+              </div>
+            )}
+            {agency.address && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <span>
+                  {agency.address}
+                  {agency.city && `, ${agency.city}`}
+                  {agency.postal_code && ` ${agency.postal_code}`}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span>Inscrit le {new Date(agency.created_at).toLocaleDateString("fr-FR")}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Documents légaux */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Documents légaux
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {agency.siret && (
+              <div>
+                <Label className="text-muted-foreground">SIRET</Label>
+                <p className="font-mono">{agency.siret}</p>
+              </div>
+            )}
+            {agency.license_number && (
+              <div>
+                <Label className="text-muted-foreground">Numéro de licence</Label>
+                <p className="font-mono">{agency.license_number}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Date d&apos;expiration de l&apos;agrément</Label>
+              <div className="flex gap-2">
+                <Input type="date" value={permitExpiration} onChange={(e) => setPermitExpiration(e.target.value)} />
+                <Button onClick={updateExpiration} disabled={loading} size="sm">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vérification */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Vérification
+            </CardTitle>
+            <CardDescription>État de la vérification du compte</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="identity"
+                checked={identityVerified}
+                onCheckedChange={(checked) => setIdentityVerified(checked as boolean)}
+              />
+              <Label htmlFor="identity">Identité vérifiée</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="permit"
+                checked={permitVerified}
+                onCheckedChange={(checked) => setPermitVerified(checked as boolean)}
+              />
+              <Label htmlFor="permit">Agrément vérifié</Label>
+            </div>
+
+            {agency.verified_at && (
+              <div className="text-sm text-muted-foreground">
+                Vérifié le {new Date(agency.verified_at).toLocaleDateString("fr-FR")}
+              </div>
+            )}
+
+            {agency.rejection_reason && (
+              <div className="p-3 bg-red-50 rounded-lg">
+                <p className="text-sm text-red-800">
+                  <strong>Raison du rejet:</strong> {agency.rejection_reason}
+                </p>
+              </div>
+            )}
+
+            {agency.re_verification_reason && (
+              <div className="p-3 bg-orange-50 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Raison re-vérification:</strong> {agency.re_verification_reason}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Notes admin */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes de vérification</CardTitle>
+            <CardDescription>Notes internes visibles uniquement par les admins</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              placeholder="Ajouter des notes sur cette agence..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+            />
+            <Button onClick={saveNotes} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Sauvegarder les notes
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Agency Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-montserrat flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-primary" />
-                Informations de l'agence
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground font-urbanist">Nom de l'agence</p>
-                  <p className="font-urbanist font-medium text-foreground">{agency.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-urbanist">Numéro de permis BSP</p>
-                  <p className="font-urbanist font-medium text-foreground font-mono">
-                    {agency.license_number || "Non fourni"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-urbanist">Responsable</p>
-                  <p className="font-urbanist font-medium text-foreground">{agency.contact_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-urbanist">Années d'activité</p>
-                  <p className="font-urbanist font-medium text-foreground">
-                    {agency.years_active ? `${agency.years_active} ans` : "Non spécifié"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  <span className="font-urbanist">{agency.contact_email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span className="font-urbanist">{agency.contact_phone}</span>
-                </div>
-                {agency.contact_address && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span className="font-urbanist">{agency.contact_address}</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Verification Checklist */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-montserrat flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
-                Vérification du compte
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={identityVerified}
-                    onChange={(e) => setIdentityVerified(e.target.checked)}
-                    className="w-5 h-5 rounded border-border text-primary focus:ring-primary/50"
-                  />
-                  <div>
-                    <span className="font-urbanist font-medium text-foreground">Identité vérifiée</span>
-                    <p className="text-sm text-muted-foreground">Le responsable du compte a été identifié</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={permitVerified}
-                    onChange={(e) => setPermitVerified(e.target.checked)}
-                    className="w-5 h-5 rounded border-border text-primary focus:ring-primary/50"
-                  />
-                  <div>
-                    <span className="font-urbanist font-medium text-foreground">Permis BSP vérifié</span>
-                    <p className="text-sm text-muted-foreground">Le permis d'agence a été validé auprès du BSP</p>
-                  </div>
-                </label>
-              </div>
-
-              <div className="border-t border-border pt-4">
-                <label className="block text-sm font-urbanist font-medium text-foreground mb-2">
-                  Date d'expiration du permis
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={permitExpiration}
-                    onChange={(e) => setPermitExpiration(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-border rounded-lg bg-background font-urbanist text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  <Button onClick={updateExpiration} disabled={loading} variant="outline">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  </Button>
-                </div>
-                {agency.permit_expiration_date && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Expire le {format(new Date(agency.permit_expiration_date), "d MMMM yyyy", { locale: fr })}
-                  </p>
-                )}
-              </div>
-
-              <div className="border-t border-border pt-4">
-                <label className="block text-sm font-urbanist font-medium text-foreground mb-2">
-                  Notes de vérification
-                </label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ajoutez des notes sur la vérification..."
-                  className="min-h-[100px] font-urbanist"
-                />
-                <Button onClick={saveNotes} disabled={loading} variant="outline" className="mt-2 bg-transparent">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                  Sauvegarder les notes
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Activity Log */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-montserrat flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                Historique des actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {logs.length === 0 ? (
-                <p className="text-muted-foreground font-urbanist text-sm text-center py-4">
-                  Aucune action enregistrée
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {logs.map((log) => (
-                    <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                      <div className="flex-1">
-                        <p className="font-urbanist text-sm text-foreground">
-                          {actionLabels[log.action as VerificationAction] || log.action}
-                        </p>
-                        {log.reason && <p className="text-xs text-muted-foreground mt-0.5">{log.reason}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(log.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions Sidebar */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-montserrat">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {status === "pending" && (
-                <>
-                  <Button
-                    onClick={() => openDialog("verify")}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    disabled={!identityVerified || !permitVerified}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Valider le compte
-                  </Button>
-                  <Button onClick={() => openDialog("reject")} variant="destructive" className="w-full">
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Rejeter le compte
-                  </Button>
-                </>
-              )}
-
-              {status === "verified" && (
-                <>
-                  <Button onClick={() => openDialog("suspend")} variant="outline" className="w-full">
-                    <Ban className="w-4 h-4 mr-2" />
-                    Suspendre le compte
-                  </Button>
-                  <Button
-                    onClick={() => openDialog("request_reverification")}
-                    variant="outline"
-                    className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Demander re-vérification
-                  </Button>
-                </>
-              )}
-
-              {status === "suspended" && (
-                <Button onClick={() => openDialog("unsuspend")} className="w-full bg-green-600 hover:bg-green-700">
+      {/* Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+          <CardDescription>Actions administratives sur ce compte</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {status === "pending" && (
+              <>
+                <Button onClick={() => openDialog("verify")} className="bg-green-600 hover:bg-green-700">
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Réactiver le compte
+                  Vérifier le compte
                 </Button>
-              )}
+                <Button onClick={() => openDialog("reject")} variant="destructive">
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Rejeter
+                </Button>
+              </>
+            )}
 
-              {status === "rejected" && (
+            {status === "verified" && (
+              <>
                 <Button
-                  onClick={() => openDialog("verify")}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={!identityVerified || !permitVerified}
+                  onClick={() => openDialog("suspend")}
+                  variant="outline"
+                  className="border-orange-500 text-orange-500 hover:bg-orange-50"
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Valider le compte
+                  <Ban className="w-4 h-4 mr-2" />
+                  Suspendre
                 </Button>
-              )}
+                <Button onClick={() => openDialog("request_reverification")} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Demander re-vérification
+                </Button>
+              </>
+            )}
 
-              {status === "expired" && (
-                <>
-                  <Button
-                    onClick={() => openDialog("verify")}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    disabled={!identityVerified || !permitVerified}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Revalider le compte
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Mettez à jour la date d'expiration avant de revalider
-                  </p>
-                </>
-              )}
+            {status === "suspended" && (
+              <Button onClick={() => openDialog("unsuspend")} className="bg-green-600 hover:bg-green-700">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Réactiver le compte
+              </Button>
+            )}
 
-              {(!identityVerified || !permitVerified) && status !== "verified" && (
-                <p className="text-xs text-amber-600 text-center">
-                  Cochez les deux vérifications pour pouvoir valider le compte
-                </p>
-              )}
-            </CardContent>
-          </Card>
+            {status === "rejected" && (
+              <Button onClick={() => openDialog("verify")} className="bg-green-600 hover:bg-green-700">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Vérifier le compte
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Verification Status Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-montserrat">Résumé</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-urbanist">Statut</span>
-                <Badge variant="outline" className={statusConfig[status].className}>
-                  {statusConfig[status].label.split(" ")[0]}
-                </Badge>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-urbanist">Identité</span>
-                <span className={`font-urbanist font-medium ${identityVerified ? "text-green-600" : "text-amber-600"}`}>
-                  {identityVerified ? "Vérifiée" : "Non vérifiée"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-urbanist">Permis BSP</span>
-                <span className={`font-urbanist font-medium ${permitVerified ? "text-green-600" : "text-amber-600"}`}>
-                  {permitVerified ? "Vérifié" : "Non vérifié"}
-                </span>
-              </div>
-              {agency.verified_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-urbanist">Vérifié le</span>
-                  <span className="font-urbanist">
-                    {format(new Date(agency.verified_at), "d MMM yyyy", { locale: fr })}
-                  </span>
-                </div>
-              )}
-              {agency.permit_expiration_date && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-urbanist">Expiration</span>
-                  <span className="font-urbanist">
-                    {format(new Date(agency.permit_expiration_date), "d MMM yyyy", { locale: fr })}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Action Dialog */}
+      {/* Dialog de confirmation */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-montserrat">{dialogContent.title}</DialogTitle>
-            <DialogDescription className="font-urbanist">{dialogContent.description}</DialogDescription>
+            <DialogTitle>{dialogContent.title}</DialogTitle>
+            <DialogDescription>{dialogContent.description}</DialogDescription>
           </DialogHeader>
 
-          {(dialogAction === "reject" || dialogAction === "suspend" || dialogAction === "request_reverification") && (
+          {dialogContent.showChecks && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="dialog-identity"
+                  checked={identityVerified}
+                  onCheckedChange={(checked) => setIdentityVerified(checked as boolean)}
+                />
+                <Label htmlFor="dialog-identity">Identité vérifiée</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="dialog-permit"
+                  checked={permitVerified}
+                  onCheckedChange={(checked) => setPermitVerified(checked as boolean)}
+                />
+                <Label htmlFor="dialog-permit">Agrément vérifié</Label>
+              </div>
+            </div>
+          )}
+
+          {dialogContent.showReason && (
             <div className="py-4">
-              <label className="block text-sm font-urbanist font-medium text-foreground mb-2">
-                Raison {dialogAction === "reject" && <span className="text-destructive">*</span>}
-              </label>
+              <Label htmlFor="reason">Raison</Label>
               <Textarea
+                id="reason"
+                placeholder="Expliquez la raison..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Expliquez la raison de cette action..."
-                className="min-h-[100px] font-urbanist"
+                className="mt-2"
               />
             </div>
           )}
@@ -622,12 +645,15 @@ export function AccountDetail({ agency, logs, currentUserId }: AccountDetailProp
               Annuler
             </Button>
             <Button
-              onClick={executeAction}
-              disabled={loading || (dialogAction === "reject" && !reason)}
-              className={dialogContent.confirmClass}
+              onClick={confirmAction}
+              disabled={loading || (dialogContent.showReason && !reason.trim())}
+              className={
+                dialogAction === "verify" || dialogAction === "unsuspend" ? "bg-green-600 hover:bg-green-700" : ""
+              }
+              variant={dialogAction === "reject" || dialogAction === "suspend" ? "destructive" : "default"}
             >
-              {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {dialogContent.confirmLabel}
+              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirmer
             </Button>
           </DialogFooter>
         </DialogContent>
