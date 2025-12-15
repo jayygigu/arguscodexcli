@@ -79,13 +79,17 @@ export default function InvestigatorsPage() {
           license_number,
           years_experience,
           availability_status,
+          user_type,
+          verification_status,
           profile_specialties (specialty)
         `)
-        .not("license_number", "is", null) // Only investigators with valid license
+        .eq("user_type", "investigator")
+        .eq("verification_status", "verified")
+        .not("license_number", "is", null)
 
       if (error) throw error
 
-      const investigatorProfiles = profiles?.filter((profile) => !agencyOwnerIds.includes(profile.id)) || []
+      const investigatorProfiles = profiles || []
 
       const investigatorIds = investigatorProfiles.map((p) => p.id)
 

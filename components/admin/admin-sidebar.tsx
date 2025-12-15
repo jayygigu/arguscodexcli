@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import {
-  Users,
   Shield,
   Clock,
   FileText,
@@ -15,19 +14,28 @@ import {
   CheckCircle,
   XCircle,
   LayoutDashboard,
+  UserSearch,
+  Building2,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 
 const navigation = [
-  { name: "Tableau de bord", href: "/admin", icon: LayoutDashboard },
-  { name: "Comptes en attente", href: "/admin/pending", icon: Clock },
-  { name: "Comptes vérifiés", href: "/admin/verified", icon: CheckCircle },
-  { name: "Comptes rejetés", href: "/admin/rejected", icon: XCircle },
-  { name: "Re-vérification", href: "/admin/reverification", icon: AlertTriangle },
-  { name: "Tous les comptes", href: "/admin/accounts", icon: Users },
-  { name: "Journal d'audit", href: "/admin/logs", icon: FileText },
-  { name: "Paramètres", href: "/admin/settings", icon: Settings },
+  { name: "Tableau de bord", href: "/admin", icon: LayoutDashboard, section: "main" },
+  // Agencies section
+  { name: "Agences en attente", href: "/admin/pending", icon: Clock, section: "agencies" },
+  { name: "Agences vérifiées", href: "/admin/verified", icon: CheckCircle, section: "agencies" },
+  { name: "Agences rejetées", href: "/admin/rejected", icon: XCircle, section: "agencies" },
+  { name: "Re-vérification agences", href: "/admin/reverification", icon: AlertTriangle, section: "agencies" },
+  { name: "Toutes les agences", href: "/admin/accounts", icon: Building2, section: "agencies" },
+  // Investigators section
+  { name: "Enquêteurs en attente", href: "/admin/investigators/pending", icon: Clock, section: "investigators" },
+  { name: "Enquêteurs vérifiés", href: "/admin/investigators/verified", icon: CheckCircle, section: "investigators" },
+  { name: "Enquêteurs rejetés", href: "/admin/investigators/rejected", icon: XCircle, section: "investigators" },
+  { name: "Tous les enquêteurs", href: "/admin/investigators", icon: UserSearch, section: "investigators" },
+  // System section
+  { name: "Journal d'audit", href: "/admin/logs", icon: FileText, section: "system" },
+  { name: "Paramètres", href: "/admin/settings", icon: Settings, section: "system" },
 ]
 
 export function AdminSidebar() {
@@ -53,6 +61,30 @@ export function AdminSidebar() {
     window.location.href = "/admin/login"
   }
 
+  const mainItems = navigation.filter((item) => item.section === "main")
+  const agencyItems = navigation.filter((item) => item.section === "agencies")
+  const investigatorItems = navigation.filter((item) => item.section === "investigators")
+  const systemItems = navigation.filter((item) => item.section === "system")
+
+  const renderNavItem = (item: (typeof navigation)[0]) => {
+    const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 rounded-lg font-urbanist text-sm transition-colors",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <item.icon className="w-4 h-4" />
+        {item.name}
+      </Link>
+    )
+  }
+
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
       <div className="p-6 border-b border-border">
@@ -65,26 +97,36 @@ export function AdminSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
+      <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+        {/* Main */}
+        <div className="space-y-1">{mainItems.map(renderNavItem)}</div>
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg font-urbanist text-sm transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.name}
-            </Link>
-          )
-        })}
+        {/* Agencies Section */}
+        <div className="space-y-1">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Building2 className="w-3 h-3" />
+            Agences
+          </p>
+          {agencyItems.map(renderNavItem)}
+        </div>
+
+        {/* Investigators Section */}
+        <div className="space-y-1">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <UserSearch className="w-3 h-3" />
+            Enquêteurs
+          </p>
+          {investigatorItems.map(renderNavItem)}
+        </div>
+
+        {/* System Section */}
+        <div className="space-y-1">
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Settings className="w-3 h-3" />
+            Système
+          </p>
+          {systemItems.map(renderNavItem)}
+        </div>
       </nav>
 
       <div className="p-4 border-t border-border">
