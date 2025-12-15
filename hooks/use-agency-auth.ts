@@ -15,44 +15,30 @@ interface UseAgencyAuthReturn {
   isVerified: boolean
 }
 
-/**
- * Hook pour récupérer les données de l'agence côté client
- * Note: La vérification d'accès est déjà faite dans proxy.ts
- * Ce hook est utilisé pour récupérer les données de l'agence après le chargement
- */
 export function useAgencyAuth(options: UseAgencyAuthOptions = {}): UseAgencyAuthReturn {
   const { requireVerified = false } = options
   const [user, setUser] = useState<any>(null)
   const [agency, setAgency] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
+    const supabase = createClient()
+
     async function fetchData() {
       try {
-        if (!supabase) {
-          throw new Error("Supabase client not initialized")
-        }
+        const {
+          data: { user: authUser },
+          error: authError,
+        } = await supabase.auth.getUser()
 
-        const authResponse = await supabase.auth.getUser()
-
-        if (authResponse.error) {
-          console.error("Auth error:", authResponse.error)
-          setLoading(false)
-          router.push("/agence/login")
-          return
-        }
-
-        const authUser = authResponse.data?.user
-
-        if (!authUser) {
-          setLoading(false)
+        if (authError || !authUser) {
           router.push("/agence/login")
           return
         }
 
         setUser(authUser)
+
         const { data: agencyData } = await supabase
           .from("agencies")
           .select("*")
@@ -66,7 +52,7 @@ export function useAgencyAuth(options: UseAgencyAuthOptions = {}): UseAgencyAuth
           return
         }
       } catch (error) {
-        console.error("Error fetching agency auth:", error)
+        console.error("Auth error:", error)
         router.push("/agence/login")
       } finally {
         setLoading(false)
@@ -74,7 +60,12 @@ export function useAgencyAuth(options: UseAgencyAuthOptions = {}): UseAgencyAuth
     }
 
     fetchData()
-  }, [supabase, requireVerified, router])
+  }, [requireVerified, router])
 
-  return { user, agency, loading, isVerified: agency?.verification_status === "verified" }
+  return {
+    user,
+    agency,
+    loading,
+    isVerified: agency?.verification_status === "verified",
+  }
 }
