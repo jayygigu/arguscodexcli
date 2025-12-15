@@ -8,14 +8,28 @@ const SUPABASE_ANON_KEY =
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
 
 export function createClient() {
-  // Return existing instance if already created
-  if (browserClient) {
+  if (browserClient && browserClient.auth) {
     return browserClient
   }
 
-  // Create new instance only once
-  browserClient = createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY)
-  return browserClient
+  try {
+    browserClient = createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    if (!browserClient || !browserClient.auth) {
+      throw new Error("Supabase client creation failed")
+    }
+
+    return browserClient
+  } catch (error) {
+    console.error("[Supabase] Failed to create browser client:", error)
+    browserClient = null
+    const freshClient = createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY)
+    if (freshClient && freshClient.auth) {
+      browserClient = freshClient
+      return browserClient
+    }
+    throw new Error("Unable to initialize Supabase client")
+  }
 }
 
 export const createBrowserSupabaseClient = createClient
