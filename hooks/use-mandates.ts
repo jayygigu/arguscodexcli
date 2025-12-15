@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc-client"
 import { createClient } from "@/lib/supabase-browser"
 import { formatQuebecPostalCode } from "@/constants/quebec-regions"
@@ -21,35 +22,50 @@ interface CreateMandateInput {
 }
 
 export function useMandates() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const supabase = createClient()
   const geocodeMutation = trpc.mandates.geocode.useMutation()
 
-  const createMandate = async (input: CreateMandateInput) => {
-    const { latitude, longitude, administrativeRegion } = await geocodeMutation.mutateAsync({
-      postal_code: formatQuebecPostalCode(input.postal_code),
-      city: input.city,
-      region: input.region,
-    })
+  const createMandate = useCallback(
+    async (input: CreateMandateInput) => {
+      if (isSubmitting) {
+        throw new Error("Une soumission est déjà en cours")
+      }
 
-    const mandateData = {
-      ...input,
-      postal_code: formatQuebecPostalCode(input.postal_code),
-      latitude,
-      longitude,
-      region: administrativeRegion,
-      status: input.assignment_type === "direct" ? "in-progress" : "open",
-    }
+      setIsSubmitting(true)
 
-    const { data, error } = await supabase.from("mandates").insert(mandateData).select().single()
+      try {
+        const { latitude, longitude, administrativeRegion } = await geocodeMutation.mutateAsync({
+          postal_code: formatQuebecPostalCode(input.postal_code),
+          city: input.city,
+          region: input.region,
+        })
 
-    if (error) {
-      throw new Error(error.message)
-    }
+        const mandateData = {
+          ...input,
+          postal_code: formatQuebecPostalCode(input.postal_code),
+          latitude,
+          longitude,
+          region: administrativeRegion,
+          status: input.assignment_type === "direct" ? "in-progress" : "open",
+        }
 
-    return data
-  }
+        const { data, error } = await supabase.from("mandates").insert(mandateData).select().single()
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        return data
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [isSubmitting, geocodeMutation, supabase],
+  )
 
   return {
     createMandate,
+    isSubmitting,
   }
 }

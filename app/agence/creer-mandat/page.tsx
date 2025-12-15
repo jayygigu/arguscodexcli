@@ -70,7 +70,7 @@ export default function CreateMandatePage() {
   const [locationError, setLocationError] = useState("")
 
   const { mutateAsync: searchLocationByPostalCode } = useGeocodeMutation()
-  const { createMandate } = useMandates()
+  const { createMandate, isSubmitting } = useMandates()
 
   const handlePostalCodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -149,6 +149,9 @@ export default function CreateMandatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (loading || isSubmitting) return
+
     setLoading(true)
     setError("")
 
@@ -676,8 +679,8 @@ export default function CreateMandatePage() {
               </Button>
 
               {currentStep === "review" ? (
-                <Button type="submit" size="lg" disabled={loading || !canProceedToNextStep()} className="gap-2">
-                  {loading ? (
+                <Button type="submit" size="lg" disabled={loading || isSubmitting} className="gap-2">
+                  {loading || isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Création en cours...

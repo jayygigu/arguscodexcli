@@ -1,48 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase-browser"
+import { useAgency } from "@/contexts/agency-context"
 import { AgencyNavClient } from "./agency-nav-client"
 
 interface AgencyNavProps {
   currentPage?: string
 }
 
-interface Agency {
-  id: string
-  name: string
-  logo: string | null
-  verification_status: string
-}
-
 export function AgencyNav({ currentPage }: AgencyNavProps) {
-  const [agency, setAgency] = useState<Agency | null>(null)
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-
-  useEffect(() => {
-    async function fetchAgency() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const { data } = await supabase
-        .from("agencies")
-        .select("id, name, logo, verification_status")
-        .eq("owner_id", user.id)
-        .maybeSingle()
-
-      setAgency(data)
-      setLoading(false)
-    }
-
-    fetchAgency()
-  }, [supabase])
+  const { agency, loading } = useAgency()
 
   if (loading) {
     return (
