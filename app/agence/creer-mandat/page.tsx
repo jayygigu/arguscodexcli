@@ -22,7 +22,7 @@ import {
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { useMandates } from "@/hooks/use-mandates"
-import { NotificationService } from "@/lib/services/notification-service"
+import { notifyInvestigatorAssigned } from "@/lib/services/notification-service"
 import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { trpc } from "@/lib/trpc-client"
@@ -180,7 +180,8 @@ export default function CreateMandatePage() {
           status: "accepted",
         })
 
-        await NotificationService.notifyInvestigatorAssigned(selectedInvestigator.id, createdMandate.id, formData.title)
+        // Use server action instead of NotificationService class
+        await notifyInvestigatorAssigned(selectedInvestigator.id, createdMandate.id, formData.title)
       }
 
       router.push(`/agence/mandats/${createdMandate.id}`)

@@ -3,7 +3,13 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { MandateValidationService } from "@/lib/services/mandate-validation"
-import { NotificationService } from "@/lib/services/notification-service"
+import {
+  notifyCandidatureAccepted,
+  notifyCandidatureRejected,
+  notifyInvestigatorUnassigned,
+  notifyMandateCompleted,
+  notifyInvestigatorAssigned,
+} from "@/lib/services/notification-service"
 import { NAVIGATION_FLOWS } from "@/lib/navigation-utils"
 
 function revalidateMandatePaths(mandateId: string, investigatorId?: string) {
@@ -108,7 +114,7 @@ export async function acceptCandidatureAction(
     }
 
     try {
-      await NotificationService.notifyCandidatureAccepted(investigatorId, mandateId, mandate.title)
+      await notifyCandidatureAccepted(investigatorId, mandateId, mandate.title)
     } catch (notifError) {
       console.error("Error sending notification (non-blocking):", notifError)
     }
@@ -175,11 +181,7 @@ export async function rejectCandidatureAction(candidatureId: string): Promise<{ 
     }
 
     try {
-      await NotificationService.notifyCandidatureRejected(
-        candidature.investigator_id,
-        candidature.mandate_id,
-        candidature.mandates.title,
-      )
+      await notifyCandidatureRejected(candidature.investigator_id, candidature.mandate_id, candidature.mandates.title)
     } catch (notifError) {
       console.error("Error sending notification (non-blocking):", notifError)
     }
@@ -302,7 +304,7 @@ export async function unassignInvestigatorAction(mandateId: string): Promise<{ s
     }
 
     try {
-      await NotificationService.notifyInvestigatorUnassigned(previousInvestigatorId, mandateId, mandate.title)
+      await notifyInvestigatorUnassigned(previousInvestigatorId, mandateId, mandate.title)
     } catch (notifError) {
       console.error("Error sending notification (non-blocking):", notifError)
     }
@@ -366,7 +368,7 @@ export async function completeMandateAction(
     }
 
     try {
-      await NotificationService.notifyMandateCompleted(user.id, mandateId, mandate.title)
+      await notifyMandateCompleted(user.id, mandateId, mandate.title)
     } catch (notifError) {
       console.error("Error sending notification (non-blocking):", notifError)
     }
@@ -494,7 +496,7 @@ export async function directAssignInvestigatorAction(
     }
 
     try {
-      await NotificationService.notifyInvestigatorAssigned(investigatorId, mandateId, mandate.title)
+      await notifyInvestigatorAssigned(investigatorId, mandateId, mandate.title)
     } catch (notifError) {
       console.error("Error sending notification (non-blocking):", notifError)
     }
