@@ -65,50 +65,63 @@ export default function InvestigatorsPage() {
   async function loadInvestigators(agencyIdParam?: string) {
     setLoading(true)
     try {
-      const { data: profiles, error } = await supabase.from("profiles").select(`
-        id,
-        name,
-        city,
-        region,
-        license_number,
-        years_experience,
-        availability_status,
-        profile_specialties (specialty)
-      `)
+      const { data: agencies } = await supabase.from("agencies").select("owner_id")
+
+      const agencyOwnerIds = agencies?.map((a) => a.owner_id).filter(Boolean) || []
+
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          name,
+          city,
+          region,
+          license_number,
+          years_experience,
+          availability_status,
+          profile_specialties (specialty)
+        `)
+        .not("license_number", "is", null) // Only investigators with valid license
 
       if (error) throw error
 
-      const investigatorIds = profiles?.map((p) => p.id) || []
+      const investigatorProfiles = profiles?.filter((profile) => !agencyOwnerIds.includes(profile.id)) || []
 
-      const { data: stats } = await supabase
-        .from("investigator_stats")
-        .select("*")
-        .in("investigator_id", investigatorIds)
+      const investigatorIds = investigatorProfiles.map((p) => p.id)
+
+      let stats: any[] = []
+      if (investigatorIds.length > 0) {
+        const { data: statsData } = await supabase
+          .from("investigator_stats")
+          .select("*")
+          .in("investigator_id", investigatorIds)
+        stats = statsData || []
+      }
 
       let favorites: string[] = []
       const currentAgencyId = agencyIdParam || agencyId
-      if (currentAgencyId) {
+      if (currentAgencyId && investigatorIds.length > 0) {
         const { data: favData } = await supabase
           .from("investigator_favorites")
           .select("investigator_id")
           .eq("agency_id", currentAgencyId)
+          .in("investigator_id", investigatorIds)
 
         favorites = favData?.map((f) => f.investigator_id) || []
       }
 
-      const enrichedInvestigators: Investigator[] =
-        profiles?.map((profile) => ({
-          id: profile.id,
-          name: profile.name || "Enquêteur",
-          city: profile.city || "Non spécifié",
-          region: profile.region || "Non spécifié",
-          license_number: profile.license_number || "",
-          years_experience: profile.years_experience,
-          availability_status: profile.availability_status || "available",
-          profile_specialties: profile.profile_specialties || [],
-          stats: stats?.find((s) => s.investigator_id === profile.id) || null,
-          is_favorite: favorites.includes(profile.id),
-        })) || []
+      const enrichedInvestigators: Investigator[] = investigatorProfiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name || "Enquêteur",
+        city: profile.city || "Non spécifié",
+        region: profile.region || "Non spécifié",
+        license_number: profile.license_number || "",
+        years_experience: profile.years_experience,
+        availability_status: profile.availability_status || "available",
+        profile_specialties: profile.profile_specialties || [],
+        stats: stats.find((s) => s.investigator_id === profile.id) || null,
+        is_favorite: favorites.includes(profile.id),
+      }))
 
       setInvestigators(enrichedInvestigators)
     } catch (err) {
