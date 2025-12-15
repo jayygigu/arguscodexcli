@@ -22,7 +22,6 @@ import {
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { useMandates } from "@/hooks/use-mandates"
-import { notifyInvestigatorAssigned } from "@/lib/services/notification-service"
 import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { trpc } from "@/lib/trpc-client"
@@ -180,8 +179,22 @@ export default function CreateMandatePage() {
           status: "accepted",
         })
 
-        // Use server action instead of NotificationService class
-        await notifyInvestigatorAssigned(selectedInvestigator.id, createdMandate.id, formData.title)
+        // Call server action instead of NotificationService class
+        const response = await fetch("/api/notifyInvestigatorAssigned", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            investigatorId: selectedInvestigator.id,
+            mandateId: createdMandate.id,
+            mandateTitle: formData.title,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to notify investigator")
+        }
       }
 
       router.push(`/agence/mandats/${createdMandate.id}`)
