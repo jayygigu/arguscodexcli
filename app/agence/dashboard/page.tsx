@@ -33,7 +33,6 @@ export default async function DashboardPage() {
     pendingCandidatures = dashboardData.pendingCandidatures
     mandatesWithoutCandidatures = dashboardData.mandatesWithoutCandidatures
   } catch (error) {
-    console.error("[v0] Dashboard data error:", error)
     stats = {
       mandatesCount: 0,
       openCount: 0,

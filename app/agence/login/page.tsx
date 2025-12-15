@@ -1,13 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase-browser"
 import { Loader2 } from "lucide-react"
-
-console.log("[v0] login/page.tsx loaded")
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -15,45 +13,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [mounted, setMounted] = useState(false)
-
-  console.log("[v0] LoginPage render - mounted:", mounted, "loading:", loading)
-
-  useEffect(() => {
-    console.log("[v0] LoginPage useEffect - setting mounted=true")
-    setMounted(true)
-  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    console.log("[v0] handleLogin() called")
     setLoading(true)
     setError("")
 
-    console.log("[v0] handleLogin() - creating supabase client...")
     const supabase = createClient()
-    console.log("[v0] handleLogin() - supabase client:", !!supabase)
 
-    if (!supabase) {
-      console.error("[v0] handleLogin() - no supabase client!")
-      setError("Erreur de connexion au serveur")
-      setLoading(false)
-      return
-    }
-
-    console.log("[v0] handleLogin() - calling signInWithPassword...")
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-
-    console.log("[v0] handleLogin() - signInWithPassword result:", {
-      hasData: !!data,
-      hasSession: !!data?.session,
-      hasUser: !!data?.user,
-      userId: data?.user?.id,
-      error: error?.message,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      console.error("[v0] handleLogin() - login error:", error.message)
       if (error.message.includes("Invalid login credentials")) {
         setError("Email ou mot de passe incorrect.")
       } else if (error.message.includes("Email not confirmed")) {
@@ -65,17 +35,7 @@ export default function LoginPage() {
       return
     }
 
-    console.log("[v0] handleLogin() - login successful, redirecting to /agence/dashboard")
     window.location.href = "/agence/dashboard"
-  }
-
-  if (!mounted) {
-    console.log("[v0] LoginPage - not mounted yet, showing loader")
-    return (
-      <div className="min-h-screen w-full bg-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0f4c75]" />
-      </div>
-    )
   }
 
   return (

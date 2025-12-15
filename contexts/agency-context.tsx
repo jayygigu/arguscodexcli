@@ -28,24 +28,14 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
-    if (typeof window === "undefined") {
-      setLoading(false)
-      return
-    }
-
     const supabase = createClient()
-    if (!supabase) {
-      setLoading(false)
-      return
-    }
 
     try {
       const {
         data: { user: authUser },
-        error: authError,
       } = await supabase.auth.getUser()
 
-      if (authError || !authUser) {
+      if (!authUser) {
         setUser(null)
         setAgency(null)
         setLoading(false)
@@ -61,7 +51,7 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
 
       setAgency(agencyData)
-    } catch (error) {
+    } catch {
       setUser(null)
       setAgency(null)
     } finally {
@@ -70,18 +60,12 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    let isMounted = true
-
     fetchData()
 
     const supabase = createClient()
-    if (!supabase) return
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (!isMounted) return
-
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchData()
       } else if (event === "SIGNED_OUT") {
@@ -91,10 +75,7 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => {
-      isMounted = false
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [fetchData, router])
 
   return (

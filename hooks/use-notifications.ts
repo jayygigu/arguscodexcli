@@ -54,7 +54,6 @@ export function useNotifications(agencyId: string | null) {
         .limit(10)
 
       if (notifError) {
-        console.error("[v0] Error fetching notifications:", notifError)
       }
 
       const { data: unreadMessages } = await supabase

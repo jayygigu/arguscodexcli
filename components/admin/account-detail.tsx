@@ -143,13 +143,11 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
       const { error: updateError } = await supabase.from("agencies").update(updateData).eq("id", agency.id)
 
       if (updateError) {
-        console.error("[v0] Agency update error:", updateError)
         toast({
           title: "Erreur",
-          description: `Impossible de mettre à jour l'agence: ${updateError.message}`,
+          description: "Impossible de mettre à jour le statut",
           variant: "destructive",
         })
-        setLoading(false)
         return
       }
 
@@ -163,7 +161,6 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
       })
 
       if (logError) {
-        console.error("[v0] Verification log error:", logError)
         // Non-blocking error - just log it
       }
 
@@ -174,10 +171,9 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
 
       router.refresh()
     } catch (error) {
-      console.error("[v0] Verification error:", error)
       toast({
         title: "Erreur",
-        description: "Une erreur inattendue s'est produite",
+        description: "Une erreur est survenue",
         variant: "destructive",
       })
     } finally {
@@ -215,13 +211,11 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
         .eq("id", agency.id)
 
       if (updateError) {
-        console.error("[v0] Notes save error:", updateError)
         toast({
           title: "Erreur",
-          description: `Impossible de sauvegarder les notes: ${updateError.message}`,
+          description: "Impossible de sauvegarder les notes",
           variant: "destructive",
         })
-        setLoading(false)
         return
       }
 
@@ -241,10 +235,9 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
 
       router.refresh()
     } catch (error) {
-      console.error("[v0] Error saving notes:", error)
       toast({
         title: "Erreur",
-        description: "Une erreur inattendue s'est produite",
+        description: "Une erreur est survenue",
         variant: "destructive",
       })
     } finally {
@@ -265,13 +258,11 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
         .eq("id", agency.id)
 
       if (updateError) {
-        console.error("[v0] Expiration update error:", updateError)
         toast({
           title: "Erreur",
-          description: `Impossible de mettre à jour l'expiration: ${updateError.message}`,
+          description: "Impossible de mettre à jour la date d'expiration",
           variant: "destructive",
         })
-        setLoading(false)
         return
       }
 
@@ -291,10 +282,9 @@ export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
 
       router.refresh()
     } catch (error) {
-      console.error("[v0] Error updating expiration:", error)
       toast({
         title: "Erreur",
-        description: "Une erreur inattendue s'est produite",
+        description: "Une erreur est survenue",
         variant: "destructive",
       })
     } finally {

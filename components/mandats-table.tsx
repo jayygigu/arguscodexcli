@@ -93,8 +93,6 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
 
   useEffect(() => {
     if (error) {
-      console.error("[v0] Error:", error)
-      // Could integrate a toast notification library here
     }
   }, [error])
 
@@ -154,7 +152,6 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
 
       const candidature = selectedMandate.mandate_interests?.find((c: any) => c.id === candidatureId)
       if (!candidature) {
-        console.error("[v0] Candidature not found")
         return
       }
 
@@ -169,9 +166,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
           await rejectCandidature(candidatureId)
         }
         router.refresh()
-      } catch (err) {
-        console.error("[v0] Action failed:", err)
-      }
+      } catch (err) {}
     },
     [selectedMandate, acceptCandidature, rejectCandidature, router],
   )
@@ -186,9 +181,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
           return
         }
         router.refresh()
-      } catch (err) {
-        console.error("[v0] Complete mandate failed:", err)
-      }
+      } catch (err) {}
     }
   }, [selectedMandate, completeMandate, router])
 
@@ -198,9 +191,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
       try {
         await reopenMandate(selectedMandate.id)
         router.refresh()
-      } catch (err) {
-        console.error("[v0] Reopen mandate failed:", err)
-      }
+      } catch (err) {}
     }
   }, [selectedMandate, reopenMandate, router])
 
