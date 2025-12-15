@@ -7,7 +7,7 @@ import { useNotifications } from "@/hooks/use-notifications"
 import { useAutoPresence } from "@/hooks/use-presence"
 import { createClient } from "@/lib/supabase-browser"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, MessageSquare, UserCheck } from "lucide-react"
+import { Bell, LogOut, MessageSquare, UserCheck, User } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +21,10 @@ interface AgencyNavClientProps {
   currentPage?: string
   agencyId: string
   agencyName: string
+  agencyLogoUrl?: string | null
 }
 
-export function AgencyNavClient({ currentPage, agencyId, agencyName }: AgencyNavClientProps) {
+export function AgencyNavClient({ currentPage, agencyId, agencyName, agencyLogoUrl }: AgencyNavClientProps) {
   const router = useRouter()
   const supabase = createClient()
   const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(agencyId)
@@ -86,6 +87,53 @@ export function AgencyNavClient({ currentPage, agencyId, agencyName }: AgencyNav
           </div>
 
           <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`relative h-10 px-3 hover:bg-[#0f4c75]/5 font-urbanist gap-2 ${currentPage === "profil" ? "bg-[#0f4c75]/10 text-[#0f4c75]" : "text-gray-700"}`}
+                  aria-label="Menu profil"
+                >
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    {agencyLogoUrl ? (
+                      <Image
+                        src={agencyLogoUrl || "/placeholder.svg"}
+                        alt={agencyName}
+                        width={28}
+                        height={28}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">{agencyName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-urbanist">
+                  <p className="font-semibold">{agencyName}</p>
+                  <p className="text-xs font-normal text-muted-foreground">Gérer votre agence</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer font-urbanist">
+                  <Link href="/agence/profil" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Profil de l'agence
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer font-urbanist text-destructive focus:text-destructive"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -165,16 +213,6 @@ export function AgencyNavClient({ currentPage, agencyId, agencyName }: AgencyNav
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              size="sm"
-              className="gap-2 border-gray-300 hover:bg-[#0f4c75]/5 hover:text-[#0f4c75] font-urbanist bg-transparent"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Déconnexion</span>
-            </Button>
           </div>
         </div>
 
@@ -199,6 +237,15 @@ export function AgencyNavClient({ currentPage, agencyId, agencyName }: AgencyNav
               </Button>
             </Link>
           ))}
+          <Link href="/agence/profil">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`relative whitespace-nowrap font-urbanist ${currentPage === "profil" ? "bg-[#0f4c75]/10 text-[#0f4c75]" : "text-gray-700"}`}
+            >
+              Profil
+            </Button>
+          </Link>
         </nav>
       </div>
     </header>

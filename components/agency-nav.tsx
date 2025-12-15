@@ -16,11 +16,22 @@ export async function AgencyNav({ currentPage }: AgencyNavProps) {
     return null
   }
 
-  const { data: agency } = await supabase.from("agencies").select("id, name").eq("owner_id", user.id).maybeSingle()
+  const { data: agency } = await supabase
+    .from("agencies")
+    .select("id, name, logo")
+    .eq("owner_id", user.id)
+    .maybeSingle()
 
   if (!agency) {
     return null
   }
 
-  return <AgencyNavClient currentPage={currentPage} agencyId={agency.id} agencyName={agency.name} />
+  return (
+    <AgencyNavClient
+      currentPage={currentPage}
+      agencyId={agency.id}
+      agencyName={agency.name}
+      agencyLogoUrl={agency.logo}
+    />
+  )
 }

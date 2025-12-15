@@ -13,6 +13,7 @@ import { FavoriteButton } from "@/components/favorite-button"
 import { InvestigatorStatsCard } from "@/components/investigator-stats-card"
 import { CollaborationHistory } from "@/components/collaboration-history"
 import { Breadcrumb } from "@/components/breadcrumb"
+import { useAgencyAuth } from "@/hooks/use-agency-auth"
 
 type Investigator = {
   id: string
@@ -45,20 +46,27 @@ export default function InvestigatorProfilePage() {
   const investigatorId = params.investigatorId as string
   const supabase = createClient()
 
+  const { agency: authAgency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
+
   const [investigator, setInvestigator] = useState<Investigator | null>(null)
   const [unavailableDates, setUnavailableDates] = useState<UnavailableDate[]>([])
   const [stats, setStats] = useState<any>(null)
-  const [collaborationHistory, setCollaborationHistory] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [agencyId, setAgencyId] = useState<string | null>(null)
   const [isFavorite, setIsFavorite] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [collaborationHistory, setCollaborationHistory] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<"general" | "unavailability" | "collaboration">("general")
 
   useEffect(() => {
-    checkAuth()
-    loadInvestigator()
-    loadUnavailableDates()
-  }, [investigatorId])
+    if (!authLoading && authAgency) {
+      setAgencyId(authAgency.id)
+      loadInvestigator()
+      loadUnavailableDates()
+      loadCollaborationHistory(authAgency.id)
+      checkIfFavorite(authAgency.id)
+    }
+  }, [investigatorId, authLoading, authAgency])
 
   useEffect(() => {
     if (!investigatorId) return
@@ -92,35 +100,6 @@ export default function InvestigatorProfilePage() {
     }
   }, [investigatorId])
 
-  async function checkAuth() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      router.push("/agence/login")
-      return
-    }
-
-    const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
-
-    if (agency) {
-      setAgencyId(agency.id)
-      loadCollaborationHistory(agency.id)
-      checkIfFavorite(agency.id)
-    }
-  }
-
-  async function checkIfFavorite(agencyId: string) {
-    const { data } = await supabase
-      .from("investigator_favorites")
-      .select("id")
-      .eq("agency_id", agencyId)
-      .eq("investigator_id", investigatorId)
-      .single()
-
-    setIsFavorite(!!data)
-  }
-
   async function loadInvestigator() {
     setLoading(true)
 
@@ -138,6 +117,7 @@ export default function InvestigatorProfilePage() {
 
     if (error) {
       console.error("Error loading investigator:", error)
+      setError("Erreur lors du chargement du profil de l'enquêteur.")
       setLoading(false)
       return
     }
@@ -196,6 +176,17 @@ export default function InvestigatorProfilePage() {
     setUnavailableDates(data || [])
   }
 
+  async function checkIfFavorite(agencyId: string) {
+    const { data } = await supabase
+      .from("investigator_favorites")
+      .select("id")
+      .eq("agency_id", agencyId)
+      .eq("investigator_id", investigatorId)
+      .single()
+
+    setIsFavorite(!!data)
+  }
+
   const formatLastSeen = (lastSeen: string | null) => {
     if (!lastSeen) return null
     const date = new Date(lastSeen)
@@ -206,6 +197,19 @@ export default function InvestigatorProfilePage() {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AgencyNav currentPage="enqueteurs" />
+        <LoadingState message="Chargement..." />
+      </div>
+    )
+  }
+
+  if (!authAgency) {
+    return null
   }
 
   if (loading) {
@@ -240,7 +244,7 @@ export default function InvestigatorProfilePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <AgencyNav />
+      <AgencyNav currentPage="enqueteurs" />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Breadcrumb items={[{ label: "Enquêteurs", href: "/agence/enqueteurs" }]} currentLabel={investigator.name} />

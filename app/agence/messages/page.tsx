@@ -1,27 +1,14 @@
 import { Suspense } from "react"
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase-server"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import Link from "next/link"
 import { MessageSquare } from "lucide-react"
 import { AgencyNav } from "@/components/agency-nav"
 import { LoadingState } from "@/components/loading-state"
+import { getVerifiedAgencyAuth } from "@/lib/agency-auth"
 
 async function MessagesPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/agence/login")
-  }
-
-  const { data: agency } = await supabase.from("agencies").select("*").eq("owner_id", user.id).maybeSingle()
-
-  if (!agency) {
-    redirect("/agence/dashboard")
-  }
+  const { agency } = await getVerifiedAgencyAuth()
+  const supabase = await createServerSupabaseClient()
 
   const { data: allMessages } = await supabase
     .from("messages")

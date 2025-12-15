@@ -2,67 +2,57 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase-browser"
+import { AlertCircle, Loader2 } from "lucide-react"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
+    contactName: "",
+    contactPhone: "",
     email: "",
     password: "",
     confirmPassword: "",
     agencyName: "",
-    contactName: "",
-    contactPhone: "",
+    licenseNumber: "",
     contactAddress: "",
-    description: "",
+    city: "",
+    postalCode: "",
+    acceptTerms: false,
+    certifyInfo: false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const router = useRouter()
   const supabase = createClient()
+
+  function validate(): string | null {
+    if (!formData.contactName || formData.contactName.length < 2) return "Le nom du responsable est requis"
+    if (!formData.contactPhone) return "Le téléphone est requis"
+    if (!formData.email || !formData.email.includes("@")) return "Email invalide"
+    if (!formData.password || formData.password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères"
+    if (formData.password !== formData.confirmPassword) return "Les mots de passe ne correspondent pas"
+    if (!formData.agencyName || formData.agencyName.length < 3) return "Le nom de l'agence est requis"
+    if (!formData.licenseNumber) return "Le numéro de permis d'agence est requis"
+    if (!formData.acceptTerms) return "Vous devez accepter les conditions d'utilisation"
+    if (!formData.certifyInfo) return "Vous devez certifier l'exactitude des informations"
+    return null
+  }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
+
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setLoading(true)
     setError("")
-    setSuccess(false)
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Les mots de passe ne correspondent pas")
-      setLoading(false)
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères")
-      setLoading(false)
-      return
-    }
-
-    if (!formData.email.includes("@")) {
-      setError("Email invalide")
-      setLoading(false)
-      return
-    }
-
-    if (!formData.agencyName || formData.agencyName.length < 3) {
-      setError("Le nom de l'agence doit contenir au moins 3 caractères")
-      setLoading(false)
-      return
-    }
-
-    if (!formData.contactName || formData.contactName.length < 2) {
-      setError("Le nom du contact est requis")
-      setLoading(false)
-      return
-    }
 
     try {
-      console.log("[v0] Starting agency registration process...")
-
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -71,381 +61,353 @@ export default function RegisterPage() {
             name: formData.contactName,
             phone: formData.contactPhone,
             agency_name: formData.agencyName,
-            agency_address: formData.contactAddress,
-            agency_description: formData.description,
-            user_type: "agency_owner", // Explicit user type
+            agency_license: formData.licenseNumber,
+            agency_address: `${formData.contactAddress}, ${formData.city}, ${formData.postalCode}`.trim(),
+            user_type: "agency_owner",
           },
-          emailRedirectTo: `${window.location.origin}/agence/onboarding`,
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/agence/profil`,
         },
       })
 
       if (authError) {
-        console.log("[v0] Auth error:", authError)
         const errorMsg = authError.message?.toLowerCase() || ""
-
         if (errorMsg.includes("already") || errorMsg.includes("exists")) {
-          const { data: profiles } = await supabase.from("profiles").select("id").eq("email", formData.email).single()
-
-          const { data: agencies } = await supabase
-            .from("agencies")
-            .select("id")
-            .eq("contact_email", formData.email)
-            .single()
-
-          if (profiles && agencies) {
-            setError("account_exists")
-          } else {
-            setError("orphaned_account")
-          }
-          setLoading(false)
-          return
+          setError("Un compte existe déjà avec cet email")
+        } else {
+          throw authError
         }
-
-        throw authError
+        setLoading(false)
+        return
       }
 
       if (!authData.user) {
         throw new Error("Erreur lors de la création du compte")
       }
 
-      console.log("[v0] User created successfully:", authData.user.id)
-
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
       if (session) {
-        console.log("[v0] Session established, verifying profile and agency...")
+        console.log("[v0] User created, checking agency...")
 
-        // Wait for trigger to complete (with retries)
-        let retries = 0
-        const maxRetries = 10
-        let profileCreated = false
-        let agencyCreated = false
+        const { data: existingAgency } = await supabase
+          .from("agencies")
+          .select("id")
+          .eq("owner_id", authData.user.id)
+          .maybeSingle()
 
-        while (retries < maxRetries && (!profileCreated || !agencyCreated)) {
-          await new Promise((resolve) => setTimeout(resolve, 500)) // Wait 500ms between retries
+        if (!existingAgency) {
+          console.log("[v0] Agency not created by trigger, creating manually...")
 
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("id", authData.user.id)
-            .maybeSingle()
+          const { error: agencyError } = await supabase.from("agencies").insert({
+            owner_id: authData.user.id,
+            name: formData.agencyName,
+            license_number: formData.licenseNumber,
+            contact_name: formData.contactName,
+            contact_email: formData.email,
+            contact_phone: formData.contactPhone || "N/A",
+            address: `${formData.contactAddress}, ${formData.city}, ${formData.postalCode}`.trim(),
+            verification_status: "pending",
+          })
 
-          const { data: agency } = await supabase
-            .from("agencies")
-            .select("id")
-            .eq("owner_id", authData.user.id)
-            .maybeSingle()
-
-          profileCreated = !!profile
-          agencyCreated = !!agency
-
-          console.log(`[v0] Retry ${retries + 1}: Profile=${profileCreated}, Agency=${agencyCreated}`)
-
-          if (profileCreated && agencyCreated) {
-            console.log("[v0] Profile and agency verified successfully")
-
-            const { error: statsError } = await supabase.from("investigator_stats").insert([]).select().limit(0) // Just to check if table exists
-
-            if (statsError && statsError.code !== "PGRST116") {
-              console.log("[v0] Stats table check:", statsError.message)
-            }
-
-            // Redirect to onboarding page
-            window.location.href = "/agence/onboarding"
+          if (agencyError) {
+            console.error("[v0] Failed to create agency:", agencyError)
+            setError(`Erreur lors de la création de l'agence: ${agencyError.message}`)
+            setLoading(false)
             return
           }
 
-          retries++
+          console.log("[v0] Agency created manually")
+        } else {
+          console.log("[v0] Agency exists, proceeding...")
         }
 
-        if (!profileCreated || !agencyCreated) {
-          throw new Error(
-            `Erreur lors de la création du compte: ${!profileCreated ? "profil manquant" : ""} ${!agencyCreated ? "agence manquante" : ""}`,
-          )
-        }
+        window.location.href = "/agence/profil"
       } else {
-        // No session means email confirmation required
+        // No session = need email confirmation
         setSuccess(true)
       }
     } catch (err: any) {
-      console.log("[v0] Registration error:", err)
+      console.error("[v0] Registration error:", err)
       setError(err.message || "Une erreur est survenue lors de l'inscription")
     } finally {
       setLoading(false)
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }))
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }))
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-muted/30 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-card border border-border rounded-lg p-8 text-center">
+            <div className="flex justify-center mb-6">
+              <Image src="/images/argus-logo.png" alt="Argus" width={140} height={56} className="object-contain" />
+            </div>
+            <h1 className="text-xl font-montserrat font-bold text-foreground mb-4">Demande d'inscription envoyée</h1>
+            <p className="text-sm text-muted-foreground font-urbanist mb-2">
+              Un email de confirmation a été envoyé à <strong className="text-foreground">{formData.email}</strong>
+            </p>
+            <p className="text-sm text-muted-foreground font-urbanist mb-6">
+              Cliquez sur le lien dans l'email pour activer votre compte.
+            </p>
+            <Link
+              href="/agence/login"
+              className="inline-block px-6 py-2.5 bg-primary text-primary-foreground font-urbanist font-medium rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Retour à la connexion
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white py-12 px-4">
-      <div className="max-w-2xl w-full space-y-8 p-8 bg-white rounded-xl shadow-lg border border-gray-100">
-        <div className="flex justify-center mb-6">
-          <Link href="/" className="flex flex-col items-center">
-            <Image
-              src="/images/argus-logo.png"
-              alt="Argus"
-              width={140}
-              height={60}
-              className="object-contain hover:opacity-80 transition-opacity"
-            />
+    <div className="min-h-screen bg-muted/30 py-8 px-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <Link href="/" className="inline-block mb-4">
+            <Image src="/images/argus-logo.png" alt="Argus" width={140} height={56} className="object-contain" />
           </Link>
+          <h1 className="text-xl font-montserrat font-bold text-foreground">Demande d'inscription — Agence</h1>
+          <p className="text-sm text-muted-foreground font-urbanist mt-1">
+            Remplissez le formulaire ci-dessous pour créer votre compte agence
+          </p>
         </div>
 
-        <div>
-          <h2 className="text-3xl font-montserrat font-bold text-center text-gray-900">Créer un compte Agence</h2>
-          <p className="mt-2 text-center text-gray-600 font-urbanist">Argus - Plateforme Agences</p>
-        </div>
-
-        {success ? (
-          <div className="text-center space-y-4 py-8">
-            <div className="text-green-600 text-5xl mb-4">✓</div>
-            <h3 className="text-2xl font-montserrat font-bold text-green-600">Compte créé avec succès !</h3>
-            <p className="text-gray-600 font-urbanist">
-              Un email de confirmation a été envoyé à <strong>{formData.email}</strong>
-            </p>
-            <p className="text-sm text-gray-500 font-urbanist">
-              Cliquez sur le lien dans l'email pour activer votre compte.
-            </p>
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl text-left border border-blue-100">
-              <p className="text-sm font-urbanist font-semibold text-blue-900 mb-2">💡 Pour tester sans email :</p>
-              <ol className="text-xs font-urbanist text-blue-700 space-y-1 list-decimal list-inside">
-                <li>Allez dans Supabase Dashboard → Authentication → Settings</li>
-                <li>Désactivez "Enable email confirmations"</li>
-                <li>Réessayez l'inscription</li>
-              </ol>
-            </div>
-            <Link href="/agence/login">
-              <button className="mt-6 bg-[#0f4c75] text-white font-urbanist font-semibold text-base px-8 py-3 rounded-xl hover:bg-[#0a3552] transition-colors shadow-lg">
-                Retour à la connexion
-              </button>
-            </Link>
-          </div>
-        ) : (
-          <form onSubmit={handleRegister} className="mt-8 space-y-6">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-urbanist font-semibold text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    placeholder="contact@agence.fr"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contactPhone"
-                    className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                  >
-                    Téléphone *
-                  </label>
-                  <input
-                    id="contactPhone"
-                    name="contactPhone"
-                    type="tel"
-                    value={formData.contactPhone}
-                    onChange={handleChange}
-                    required
-                    placeholder="06 12 34 56 78"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
-                  />
-                </div>
+        {/* Form */}
+        <form onSubmit={handleRegister} className="bg-card border border-border rounded-lg">
+          {/* Section 1: Responsable */}
+          <div className="p-6 border-b border-border">
+            <h2 className="text-sm font-montserrat font-semibold text-foreground uppercase tracking-wide mb-4">
+              1. Responsable du compte
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  Nom complet <span className="text-destructive">*</span>
+                </label>
+                <input
+                  name="contactName"
+                  type="text"
+                  value={formData.contactName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  Téléphone <span className="text-destructive">*</span>
+                </label>
+                <input
+                  name="contactPhone"
+                  type="tel"
+                  value={formData.contactPhone}
+                  onChange={handleChange}
+                  placeholder="514 123-4567"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  Courriel <span className="text-destructive">*</span>
+                </label>
+                <input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="md:col-span-2 grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="password" className="block text-sm font-urbanist font-semibold text-gray-700 mb-2">
-                    Mot de passe *
+                  <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                    Mot de passe <span className="text-destructive">*</span>
                   </label>
                   <input
-                    id="password"
                     name="password"
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
-                    required
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Minimum 8 caractères</p>
                 </div>
-
                 <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                  >
-                    Confirmer mot de passe *
+                  <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                    Confirmer le mot de passe <span className="text-destructive">*</span>
                   </label>
                   <input
-                    id="confirmPassword"
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    required
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="border-t border-gray-200 pt-6 mt-6">
-                <h3 className="text-lg font-montserrat font-semibold mb-4 text-gray-900">Informations de l'agence</h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="agencyName"
-                      className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                    >
-                      Nom de l'agence *
-                    </label>
-                    <input
-                      id="agencyName"
-                      name="agencyName"
-                      type="text"
-                      value={formData.agencyName}
-                      onChange={handleChange}
-                      required
-                      placeholder="Agence Détective Privé"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="contactName"
-                      className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                    >
-                      Nom du contact *
-                    </label>
-                    <input
-                      id="contactName"
-                      name="contactName"
-                      type="text"
-                      value={formData.contactName}
-                      onChange={handleChange}
-                      required
-                      placeholder="Jean Dupont"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="contactAddress"
-                      className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                    >
-                      Adresse
-                    </label>
-                    <input
-                      id="contactAddress"
-                      name="contactAddress"
-                      type="text"
-                      value={formData.contactAddress}
-                      onChange={handleChange}
-                      placeholder="123 Rue de la République, 75001 Paris"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="description"
-                      className="block text-sm font-urbanist font-semibold text-gray-700 mb-2"
-                    >
-                      Description de l'agence
-                    </label>
-                    <textarea
-                      id="description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      placeholder="Décrivez votre agence, vos spécialités..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f4c75] focus:border-transparent font-urbanist text-sm resize-none"
-                    />
-                  </div>
-                </div>
+          {/* Section 2: Agence */}
+          <div className="p-6 border-b border-border">
+            <h2 className="text-sm font-montserrat font-semibold text-foreground uppercase tracking-wide mb-4">
+              2. Informations de l'agence
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  Nom de l'agence <span className="text-destructive">*</span>
+                </label>
+                <input
+                  name="agencyName"
+                  type="text"
+                  value={formData.agencyName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  No. de permis d'agence (BSP) <span className="text-destructive">*</span>
+                </label>
+                <input
+                  name="licenseNumber"
+                  type="text"
+                  value={formData.licenseNumber}
+                  onChange={handleChange}
+                  placeholder="Ex: 123456"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Délivré par le Bureau de la sécurité privée</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">
+                  Adresse du siège social
+                </label>
+                <input
+                  name="contactAddress"
+                  type="text"
+                  value={formData.contactAddress}
+                  onChange={handleChange}
+                  placeholder="123 Rue Exemple"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">Ville</label>
+                <input
+                  name="city"
+                  type="text"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-urbanist font-medium text-foreground mb-1">Code postal</label>
+                <input
+                  name="postalCode"
+                  type="text"
+                  value={formData.postalCode}
+                  onChange={handleChange}
+                  placeholder="H2X 1A1"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground font-urbanist text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
             </div>
+          </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                {error === "account_exists" ? (
-                  <div className="space-y-3">
-                    <p className="font-urbanist font-semibold text-red-800">✋ Ce compte existe déjà</p>
-                    <p className="text-sm font-urbanist text-red-700">
-                      Un compte complet existe avec cet email. Utilisez la connexion.
-                    </p>
-                    <div className="flex gap-2 mt-3">
-                      <Link href="/agence/login">
-                        <button className="px-4 py-2 text-sm font-urbanist font-semibold text-[#0f4c75] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                          Se connecter
-                        </button>
-                      </Link>
-                      <Link href="/agence/forgot-password">
-                        <button className="px-4 py-2 text-sm font-urbanist font-semibold text-[#0f4c75] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                          Mot de passe oublié ?
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
-                ) : error === "orphaned_account" ? (
-                  <div className="space-y-3">
-                    <p className="font-urbanist font-semibold text-red-800">⚠️ Compte incomplet détecté</p>
-                    <p className="text-sm font-urbanist text-red-700">
-                      Un compte existe avec cet email mais le profil est incomplet.
-                    </p>
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-urbanist text-yellow-800">
-                      <p className="font-semibold mb-2">Solution :</p>
-                      <ol className="list-decimal list-inside space-y-1">
-                        <li>Allez dans Supabase Dashboard → Authentication → Users</li>
-                        <li>
-                          Trouvez l'utilisateur avec l'email : <strong>{formData.email}</strong>
-                        </li>
-                        <li>Supprimez cet utilisateur</li>
-                        <li>Réessayez l'inscription</li>
-                      </ol>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm font-urbanist text-red-700">{error}</p>
-                )}
-              </div>
-            )}
+          {/* Section 3: Déclarations */}
+          <div className="p-6 border-b border-border bg-muted/30">
+            <h2 className="text-sm font-montserrat font-semibold text-foreground uppercase tracking-wide mb-4">
+              3. Déclarations
+            </h2>
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="certifyInfo"
+                  checked={formData.certifyInfo}
+                  onChange={handleChange}
+                  className="mt-0.5 w-4 h-4 rounded border-border text-primary focus:ring-primary/50"
+                />
+                <span className="text-sm font-urbanist text-foreground">
+                  Je certifie que les informations fournies sont exactes et que je dispose d'un permis d'agence de
+                  sécurité privée valide délivré par le Bureau de la sécurité privée du Québec.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="acceptTerms"
+                  checked={formData.acceptTerms}
+                  onChange={handleChange}
+                  className="mt-0.5 w-4 h-4 rounded border-border text-primary focus:ring-primary/50"
+                />
+                <span className="text-sm font-urbanist text-foreground">
+                  J'accepte les{" "}
+                  <Link href="/terms" className="text-primary underline">
+                    conditions d'utilisation
+                  </Link>{" "}
+                  et la{" "}
+                  <Link href="/privacy" className="text-primary underline">
+                    politique de confidentialité
+                  </Link>{" "}
+                  d'Argus.
+                </span>
+              </label>
+            </div>
+          </div>
 
-            <button
-              type="submit"
-              className="w-full bg-[#0f4c75] text-white font-urbanist font-semibold text-lg py-4 rounded-xl hover:bg-[#0a3552] transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading}
-            >
-              {loading ? "Création en cours..." : "Créer mon compte"}
-            </button>
+          {/* Error */}
+          {error && (
+            <div className="mx-6 mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-urbanist text-destructive">{error}</p>
+            </div>
+          )}
 
-            <div className="text-center">
-              <Link href="/agence/login" className="text-sm font-urbanist text-[#0f4c75] font-semibold hover:underline">
-                Déjà un compte ? Se connecter
+          {/* Submit */}
+          <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground font-urbanist">
+              <span className="text-destructive">*</span> Champs obligatoires
+            </p>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/agence/login"
+                className="px-4 py-2 text-sm font-urbanist font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Annuler
               </Link>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2.5 bg-primary text-primary-foreground font-urbanist font-medium text-sm rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {loading ? "Envoi en cours..." : "Soumettre la demande"}
+              </button>
             </div>
-          </form>
-        )}
+          </div>
+        </form>
+
+        {/* Footer */}
+        <p className="text-center text-xs text-muted-foreground font-urbanist mt-4">
+          Vous avez déjà un compte?{" "}
+          <Link href="/agence/login" className="text-primary underline">
+            Se connecter
+          </Link>
+        </p>
       </div>
     </div>
   )

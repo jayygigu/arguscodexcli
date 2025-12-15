@@ -1,9 +1,7 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase-browser"
@@ -14,7 +12,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const router = useRouter()
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
@@ -22,10 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     setError("")
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       if (error.message.includes("Invalid login credentials")) {
@@ -38,9 +32,10 @@ export default function LoginPage() {
         setError(error.message)
       }
       setLoading(false)
-    } else {
-      window.location.href = "/agence/dashboard"
+      return
     }
+
+    window.location.href = "/agence/profil"
   }
 
   return (

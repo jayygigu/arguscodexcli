@@ -6,7 +6,41 @@ import { MandateValidationService } from "@/lib/services/mandate-validation"
 import { NotificationService } from "@/lib/services/notification-service"
 import { NAVIGATION_FLOWS } from "@/lib/navigation-utils"
 
-export async function acceptCandidatureAction(candidatureId: string, mandateId: string, investigatorId: string) {
+function revalidateMandatePaths(mandateId: string, investigatorId?: string) {
+  revalidatePath(`/agence/mandats/${mandateId}`)
+  revalidatePath("/agence/mandats")
+  revalidatePath("/agence/dashboard")
+  revalidatePath("/agence/candidatures")
+
+  if (investigatorId) {
+    revalidatePath(`/agence/enqueteurs/${investigatorId}`)
+    revalidatePath("/agence/enqueteurs")
+  }
+}
+
+async function validateAgencyOwnership(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  agencyId: string,
+): Promise<{ valid: boolean; error?: string }> {
+  const { data: agency } = await supabase
+    .from("agencies")
+    .select("id")
+    .eq("owner_id", userId)
+    .eq("id", agencyId)
+    .maybeSingle()
+
+  if (!agency) {
+    return { valid: false, error: "Non autorisé" }
+  }
+  return { valid: true }
+}
+
+export async function acceptCandidatureAction(
+  candidatureId: string,
+  mandateId: string,
+  investigatorId: string,
+): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -26,16 +60,23 @@ export async function acceptCandidatureAction(candidatureId: string, mandateId: 
       .from("mandates")
       .select("agency_id, status, assigned_to, title")
       .eq("id", mandateId)
-      .single()
+      .maybeSingle()
 
     if (!mandate) {
       return { success: false, error: "Mandat introuvable" }
     }
 
-    const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
+    const authCheck = await validateAgencyOwnership(supabase, user.id, mandate.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
+    }
 
-    if (!agency || agency.id !== mandate.agency_id) {
-      return { success: false, error: "Non autorisé" }
+    if (mandate.assigned_to && mandate.assigned_to !== investigatorId) {
+      return { success: false, error: "Ce mandat est déjà assigné à un autre enquêteur" }
+    }
+
+    if (mandate.status === "completed" || mandate.status === "cancelled") {
+      return { success: false, error: `Ce mandat est déjà ${mandate.status === "completed" ? "complété" : "annulé"}` }
     }
 
     const { error: acceptError } = await supabase
@@ -59,29 +100,20 @@ export async function acceptCandidatureAction(candidatureId: string, mandateId: 
 
     if (assignError) {
       console.error("Error assigning investigator:", assignError)
-      await supabase.from("mandate_interests").update({ status: "interested" }).eq("id", candidatureId)
+      await supabase
+        .from("mandate_interests")
+        .update({ status: "interested", updated_at: new Date().toISOString() })
+        .eq("id", candidatureId)
       return { success: false, error: "Impossible d'assigner l'enquêteur" }
     }
 
-    const { error: expireError } = await supabase
-      .from("mandate_interests")
-      .update({ status: "rejected", updated_at: new Date().toISOString() })
-      .eq("mandate_id", mandateId)
-      .neq("id", candidatureId)
-      .eq("status", "interested")
-
-    if (expireError) {
-      console.error("Error expiring other candidatures:", expireError)
+    try {
+      await NotificationService.notifyCandidatureAccepted(investigatorId, mandateId, mandate.title)
+    } catch (notifError) {
+      console.error("Error sending notification (non-blocking):", notifError)
     }
 
-    await NotificationService.notifyCandidatureAccepted(investigatorId, mandateId, mandate.title)
-
-    revalidatePath("/agence/candidatures")
-    revalidatePath("/agence/mandats")
-    revalidatePath(`/agence/mandats/${mandateId}`)
-    revalidatePath("/agence/dashboard")
-    revalidatePath("/agence/enqueteurs")
-    revalidatePath(`/agence/enqueteurs/${investigatorId}`)
+    revalidateMandatePaths(mandateId, investigatorId)
 
     return {
       success: true,
@@ -93,7 +125,7 @@ export async function acceptCandidatureAction(candidatureId: string, mandateId: 
   }
 }
 
-export async function rejectCandidatureAction(candidatureId: string) {
+export async function rejectCandidatureAction(candidatureId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -106,18 +138,30 @@ export async function rejectCandidatureAction(candidatureId: string) {
 
     const { data: candidature } = await supabase
       .from("mandate_interests")
-      .select("mandate_id, investigator_id, mandates!inner(agency_id, title)")
+      .select(`
+        mandate_id, 
+        investigator_id, 
+        status,
+        mandates!inner(agency_id, title, assigned_to)
+      `)
       .eq("id", candidatureId)
-      .single()
+      .maybeSingle()
 
     if (!candidature) {
       return { success: false, error: "Candidature introuvable" }
     }
 
-    const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
+    if (candidature.mandates.assigned_to === candidature.investigator_id) {
+      return { success: false, error: "Cet enquêteur est assigné au mandat. Désassignez-le d'abord." }
+    }
 
-    if (!agency || agency.id !== candidature.mandates.agency_id) {
-      return { success: false, error: "Non autorisé" }
+    if (candidature.status === "rejected") {
+      return { success: false, error: "Cette candidature est déjà refusée" }
+    }
+
+    const authCheck = await validateAgencyOwnership(supabase, user.id, candidature.mandates.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
     }
 
     const { error } = await supabase
@@ -130,16 +174,17 @@ export async function rejectCandidatureAction(candidatureId: string) {
       return { success: false, error: "Impossible de refuser la candidature" }
     }
 
-    await NotificationService.notifyCandidatureRejected(
-      candidature.investigator_id,
-      candidature.mandate_id,
-      candidature.mandates.title,
-    )
+    try {
+      await NotificationService.notifyCandidatureRejected(
+        candidature.investigator_id,
+        candidature.mandate_id,
+        candidature.mandates.title,
+      )
+    } catch (notifError) {
+      console.error("Error sending notification (non-blocking):", notifError)
+    }
 
-    revalidatePath("/agence/candidatures")
-    revalidatePath("/agence/mandats")
-    revalidatePath(`/agence/mandats/${candidature.mandate_id}`)
-    revalidatePath("/agence/dashboard")
+    revalidateMandatePaths(candidature.mandate_id, candidature.investigator_id)
 
     return { success: true }
   } catch (error: any) {
@@ -148,7 +193,65 @@ export async function rejectCandidatureAction(candidatureId: string) {
   }
 }
 
-export async function unassignInvestigatorAction(mandateId: string) {
+export async function unrejectCandidatureAction(candidatureId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "Non authentifié" }
+    }
+
+    const { data: candidature } = await supabase
+      .from("mandate_interests")
+      .select(`
+        mandate_id, 
+        investigator_id, 
+        status,
+        mandates!inner(agency_id, status, assigned_to)
+      `)
+      .eq("id", candidatureId)
+      .maybeSingle()
+
+    if (!candidature) {
+      return { success: false, error: "Candidature introuvable" }
+    }
+
+    if (candidature.status !== "rejected") {
+      return { success: false, error: "Cette candidature n'est pas refusée" }
+    }
+
+    if (candidature.mandates.status !== "open") {
+      return { success: false, error: "Le mandat n'est plus ouvert aux candidatures" }
+    }
+
+    const authCheck = await validateAgencyOwnership(supabase, user.id, candidature.mandates.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
+    }
+
+    const { error } = await supabase
+      .from("mandate_interests")
+      .update({ status: "interested", updated_at: new Date().toISOString() })
+      .eq("id", candidatureId)
+
+    if (error) {
+      console.error("Error unrejecting candidature:", error)
+      return { success: false, error: "Impossible de restaurer la candidature" }
+    }
+
+    revalidateMandatePaths(candidature.mandate_id, candidature.investigator_id)
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in unrejectCandidatureAction:", error)
+    return { success: false, error: error.message || "Une erreur est survenue" }
+  }
+}
+
+export async function unassignInvestigatorAction(mandateId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -163,7 +266,7 @@ export async function unassignInvestigatorAction(mandateId: string) {
       .from("mandates")
       .select("agency_id, status, assigned_to, title")
       .eq("id", mandateId)
-      .single()
+      .maybeSingle()
 
     if (!mandate) {
       return { success: false, error: "Mandat introuvable" }
@@ -177,10 +280,9 @@ export async function unassignInvestigatorAction(mandateId: string) {
       return { success: false, error: "Impossible de désassigner un enquêteur d'un mandat complété" }
     }
 
-    const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
-
-    if (!agency || agency.id !== mandate.agency_id) {
-      return { success: false, error: "Non autorisé" }
+    const authCheck = await validateAgencyOwnership(supabase, user.id, mandate.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
     }
 
     const previousInvestigatorId = mandate.assigned_to
@@ -199,24 +301,13 @@ export async function unassignInvestigatorAction(mandateId: string) {
       return { success: false, error: "Impossible de retirer l'assignation" }
     }
 
-    const { error: resetError } = await supabase
-      .from("mandate_interests")
-      .update({ status: "interested", updated_at: new Date().toISOString() })
-      .eq("mandate_id", mandateId)
-      .in("status", ["accepted", "rejected"])
-
-    if (resetError) {
-      console.error("Error resetting candidatures:", resetError)
+    try {
+      await NotificationService.notifyInvestigatorUnassigned(previousInvestigatorId, mandateId, mandate.title)
+    } catch (notifError) {
+      console.error("Error sending notification (non-blocking):", notifError)
     }
 
-    await NotificationService.notifyInvestigatorUnassigned(previousInvestigatorId, mandateId, mandate.title)
-
-    revalidatePath("/agence/candidatures")
-    revalidatePath("/agence/mandats")
-    revalidatePath(`/agence/mandats/${mandateId}`)
-    revalidatePath("/agence/dashboard")
-    revalidatePath("/agence/enqueteurs")
-    revalidatePath("/agence/enqueteurs/compare")
+    revalidateMandatePaths(mandateId, previousInvestigatorId)
 
     return { success: true }
   } catch (error: any) {
@@ -225,7 +316,9 @@ export async function unassignInvestigatorAction(mandateId: string) {
   }
 }
 
-export async function completeMandateAction(mandateId: string) {
+export async function completeMandateAction(
+  mandateId: string,
+): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -240,7 +333,7 @@ export async function completeMandateAction(mandateId: string) {
       .from("mandates")
       .select("agency_id, assigned_to, status, title")
       .eq("id", mandateId)
-      .single()
+      .maybeSingle()
 
     if (!mandate) {
       return { success: false, error: "Mandat introuvable" }
@@ -254,10 +347,9 @@ export async function completeMandateAction(mandateId: string) {
       return { success: false, error: "Seuls les mandats en cours peuvent être marqués comme terminés" }
     }
 
-    const { data: agency } = await supabase.from("agencies").select("id, owner_id").eq("owner_id", user.id).single()
-
-    if (!agency || agency.id !== mandate.agency_id) {
-      return { success: false, error: "Non autorisé" }
+    const authCheck = await validateAgencyOwnership(supabase, user.id, mandate.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
     }
 
     const { error } = await supabase
@@ -273,13 +365,13 @@ export async function completeMandateAction(mandateId: string) {
       return { success: false, error: "Impossible de marquer le mandat comme terminé" }
     }
 
-    await NotificationService.notifyMandateCompleted(agency.owner_id, mandateId, mandate.title)
+    try {
+      await NotificationService.notifyMandateCompleted(user.id, mandateId, mandate.title)
+    } catch (notifError) {
+      console.error("Error sending notification (non-blocking):", notifError)
+    }
 
-    revalidatePath("/agence/mandats")
-    revalidatePath(`/agence/mandats/${mandateId}`)
-    revalidatePath("/agence/dashboard")
-    revalidatePath("/agence/enqueteurs")
-    revalidatePath("/agence/enqueteurs/compare")
+    revalidateMandatePaths(mandateId, mandate.assigned_to)
 
     return {
       success: true,
@@ -291,7 +383,7 @@ export async function completeMandateAction(mandateId: string) {
   }
 }
 
-export async function reopenMandateAction(mandateId: string) {
+export async function reopenMandateAction(mandateId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -306,7 +398,7 @@ export async function reopenMandateAction(mandateId: string) {
       .from("mandates")
       .select("agency_id, assigned_to, status, title")
       .eq("id", mandateId)
-      .single()
+      .maybeSingle()
 
     if (!mandate) {
       return { success: false, error: "Mandat introuvable" }
@@ -316,10 +408,9 @@ export async function reopenMandateAction(mandateId: string) {
       return { success: false, error: "Seuls les mandats terminés peuvent être rouverts" }
     }
 
-    const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
-
-    if (!agency || agency.id !== mandate.agency_id) {
-      return { success: false, error: "Non autorisé" }
+    const authCheck = await validateAgencyOwnership(supabase, user.id, mandate.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
     }
 
     const newStatus = mandate.assigned_to ? "in-progress" : "open"
@@ -328,7 +419,6 @@ export async function reopenMandateAction(mandateId: string) {
       .from("mandates")
       .update({
         status: newStatus,
-        completed_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", mandateId)
@@ -338,15 +428,82 @@ export async function reopenMandateAction(mandateId: string) {
       return { success: false, error: "Impossible de rouvrir le mandat" }
     }
 
-    revalidatePath("/agence/mandats")
-    revalidatePath(`/agence/mandats/${mandateId}`)
-    revalidatePath("/agence/dashboard")
-    revalidatePath("/agence/enqueteurs")
-    revalidatePath("/agence/enqueteurs/compare")
+    revalidateMandatePaths(mandateId, mandate.assigned_to || undefined)
 
     return { success: true }
   } catch (error: any) {
     console.error("Error in reopenMandateAction:", error)
+    return { success: false, error: error.message || "Une erreur est survenue" }
+  }
+}
+
+export async function directAssignInvestigatorAction(
+  mandateId: string,
+  investigatorId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "Non authentifié" }
+    }
+
+    const validation = await MandateValidationService.validateAssignment(mandateId, investigatorId)
+    if (!validation.valid) {
+      return { success: false, error: validation.reason || "Impossible d'assigner cet enquêteur" }
+    }
+
+    const { data: mandate } = await supabase
+      .from("mandates")
+      .select("agency_id, status, assigned_to, title")
+      .eq("id", mandateId)
+      .maybeSingle()
+
+    if (!mandate) {
+      return { success: false, error: "Mandat introuvable" }
+    }
+
+    if (mandate.assigned_to) {
+      return { success: false, error: "Ce mandat est déjà assigné à un enquêteur" }
+    }
+
+    if (mandate.status !== "open") {
+      return { success: false, error: "Seuls les mandats ouverts peuvent recevoir une assignation directe" }
+    }
+
+    const authCheck = await validateAgencyOwnership(supabase, user.id, mandate.agency_id)
+    if (!authCheck.valid) {
+      return { success: false, error: authCheck.error }
+    }
+
+    const { error } = await supabase
+      .from("mandates")
+      .update({
+        assigned_to: investigatorId,
+        status: "in-progress",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", mandateId)
+
+    if (error) {
+      console.error("Error direct assigning investigator:", error)
+      return { success: false, error: "Impossible d'assigner l'enquêteur" }
+    }
+
+    try {
+      await NotificationService.notifyInvestigatorAssigned(investigatorId, mandateId, mandate.title)
+    } catch (notifError) {
+      console.error("Error sending notification (non-blocking):", notifError)
+    }
+
+    revalidateMandatePaths(mandateId, investigatorId)
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in directAssignInvestigatorAction:", error)
     return { success: false, error: error.message || "Une erreur est survenue" }
   }
 }

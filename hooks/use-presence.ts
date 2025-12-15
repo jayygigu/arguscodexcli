@@ -124,10 +124,10 @@ export function useAutoPresence() {
 
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
 
-        if (!user) {
+        if (!session?.user) {
           isAuthenticated = false
           return
         }
@@ -138,7 +138,7 @@ export function useAutoPresence() {
             is_online: isOnline,
             last_seen_at: new Date().toISOString(),
           })
-          .eq("id", user.id)
+          .eq("id", session.user.id)
 
         if (error) {
           // Silently fail - user might not be authenticated or network issue
@@ -153,10 +153,10 @@ export function useAutoPresence() {
     async function initPresence() {
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
 
-        if (!user || !isMounted) {
+        if (!session?.user || !isMounted) {
           return
         }
 

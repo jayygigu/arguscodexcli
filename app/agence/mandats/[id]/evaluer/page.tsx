@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { RatingForm } from "@/components/rating-form"
 import { Breadcrumb } from "@/components/breadcrumb"
+import { getVerifiedAgencyAuth } from "@/lib/agency-auth"
 
 export default async function EvaluerMandatPage({
   params,
@@ -14,35 +15,26 @@ export default async function EvaluerMandatPage({
 }) {
   const { id } = await params
 
+  const { agency } = await getVerifiedAgencyAuth()
+
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/agence/login")
-  }
-
-  const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
-
-  if (!agency) {
-    redirect("/agence/dashboard")
-  }
 
   const { data: mandate } = await supabase
     .from("mandates")
     .select("*, profiles:assigned_to(id, name)")
     .eq("id", id)
     .eq("agency_id", agency.id)
-    .single()
+    .maybeSingle()
 
   if (!mandate || !mandate.assigned_to || mandate.status !== "completed") {
     redirect(`/agence/mandats/${id}`)
   }
 
-  // Check if already rated
-  const { data: existingRating } = await supabase.from("mandate_ratings").select("id").eq("mandate_id", id).single()
+  const { data: existingRating } = await supabase
+    .from("mandate_ratings")
+    .select("id")
+    .eq("mandate_id", id)
+    .maybeSingle()
 
   if (existingRating) {
     redirect(`/agence/mandats/${id}`)

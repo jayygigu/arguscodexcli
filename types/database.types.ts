@@ -1,5 +1,17 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
+export type VerificationStatus = "pending" | "verified" | "rejected" | "suspended" | "expired"
+export type AdminRole = "admin" | "super_admin"
+export type VerificationAction =
+  | "verify"
+  | "reject"
+  | "suspend"
+  | "unsuspend"
+  | "request_reverification"
+  | "update_permit"
+  | "update_expiration"
+  | "notes_added"
+
 export interface Database {
   public: {
     Tables: {
@@ -18,6 +30,20 @@ export interface Database {
           active_investigators: number | null
           created_at: string | null
           updated_at: string | null
+          verification_status: VerificationStatus | null
+          license_number: string | null
+          permit_expiration_date: string | null
+          permit_document_url: string | null
+          identity_verified: boolean | null
+          permit_verified: boolean | null
+          verification_notes: string | null
+          verified_at: string | null
+          verified_by: string | null
+          rejection_reason: string | null
+          last_verification_date: string | null
+          next_verification_date: string | null
+          re_verification_required: boolean | null
+          re_verification_reason: string | null
         }
         Insert: {
           id?: string
@@ -33,8 +59,87 @@ export interface Database {
           active_investigators?: number | null
           created_at?: string | null
           updated_at?: string | null
+          verification_status?: VerificationStatus | null
+          license_number?: string | null
+          permit_expiration_date?: string | null
+          permit_document_url?: string | null
+          identity_verified?: boolean | null
+          permit_verified?: boolean | null
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          rejection_reason?: string | null
+          last_verification_date?: string | null
+          next_verification_date?: string | null
+          re_verification_required?: boolean | null
+          re_verification_reason?: string | null
         }
         Update: Partial<Database["public"]["Tables"]["agencies"]["Insert"]>
+      }
+      admin_users: {
+        Row: {
+          id: string
+          user_id: string
+          role: AdminRole
+          permissions: Json
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role?: AdminRole
+          permissions?: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: Partial<Database["public"]["Tables"]["admin_users"]["Insert"]>
+      }
+      verification_logs: {
+        Row: {
+          id: string
+          agency_id: string
+          admin_id: string
+          action: VerificationAction
+          previous_status: string | null
+          new_status: string | null
+          reason: string | null
+          metadata: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          agency_id: string
+          admin_id: string
+          action: VerificationAction
+          previous_status?: string | null
+          new_status?: string | null
+          reason?: string | null
+          metadata?: Json | null
+          created_at?: string | null
+        }
+        Update: Partial<Database["public"]["Tables"]["verification_logs"]["Insert"]>
+      }
+      re_verification_alerts: {
+        Row: {
+          id: string
+          agency_id: string
+          alert_type: "30_days" | "14_days" | "7_days" | "expired" | "custom"
+          alert_date: string
+          is_sent: boolean | null
+          sent_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          agency_id: string
+          alert_type: "30_days" | "14_days" | "7_days" | "expired" | "custom"
+          alert_date: string
+          is_sent?: boolean | null
+          sent_at?: string | null
+          created_at?: string | null
+        }
+        Update: Partial<Database["public"]["Tables"]["re_verification_alerts"]["Insert"]>
       }
       agency_specialties: {
         Row: {
@@ -85,7 +190,7 @@ export interface Database {
           priority: "urgent" | "high" | "normal" | "low"
           budget: string | null
           agency_id: string
-          status: "open" | "assigned" | "in-progress" | "completed" | "cancelled" | "expired"
+          status: "open" | "in-progress" | "completed" | "cancelled" | "expired"
           assignment_type: "direct" | "public"
           assigned_to: string | null
           created_at: string | null
@@ -255,7 +360,6 @@ export interface Database {
         }
         Update: Partial<Database["public"]["Tables"]["unavailable_dates"]["Insert"]>
       }
-      // New tables for stats and favorites
       investigator_stats: {
         Row: {
           id: string
@@ -334,45 +438,6 @@ export interface Database {
   }
 }
 
-export type MandateStatus =
-  | "open" // Public, pas d'enquêteur assigné
-  | "assigned" // Enquêteur assigné, en attente de confirmation
-  | "in-progress" // Enquêteur a confirmé, travail en cours
-  | "completed" // Mandat terminé avec succès
-  | "cancelled" // Mandat annulé
-  | "expired" // Date dépassée sans complétion
-
-export type CandidatureStatus =
-  | "interested" // Candidature initiale
-  | "accepted" // Acceptée par l'agence
-  | "rejected" // Refusée par l'agence
-  | "withdrawn" // Retirée par l'enquêteur
-  | "expired" // Mandat déjà assigné à un autre
-
-export type MandateTransition = {
-  from: MandateStatus
-  to: MandateStatus
-  allowed: boolean
-  requiresInvestigator?: boolean
-}
-
-export const MANDATE_WORKFLOW: MandateTransition[] = [
-  { from: "open", to: "assigned", allowed: true, requiresInvestigator: true },
-  { from: "open", to: "cancelled", allowed: true },
-  { from: "open", to: "expired", allowed: true },
-  { from: "assigned", to: "in-progress", allowed: true, requiresInvestigator: true },
-  { from: "assigned", to: "open", allowed: true },
-  { from: "assigned", to: "cancelled", allowed: true },
-  { from: "in-progress", to: "completed", allowed: true, requiresInvestigator: true },
-  { from: "in-progress", to: "cancelled", allowed: true },
-  { from: "completed", to: "in-progress", allowed: false }, // Cannot reopen completed
-]
-
-export function canTransition(from: MandateStatus, to: MandateStatus): boolean {
-  return MANDATE_WORKFLOW.some((t) => t.from === from && t.to === to && t.allowed)
-}
-
-export function requiresInvestigator(from: MandateStatus, to: MandateStatus): boolean {
-  const transition = MANDATE_WORKFLOW.find((t) => t.from === from && t.to === to)
-  return transition?.requiresInvestigator ?? false
-}
+// Type aliases for cleaner usage - no functions here, only types
+export type MandateStatus = "open" | "in-progress" | "completed" | "cancelled" | "expired"
+export type CandidatureStatus = "interested" | "accepted" | "rejected"

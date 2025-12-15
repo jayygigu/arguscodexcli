@@ -38,7 +38,7 @@ export async function getInvestigatorWithStats(investigatorId: string, agencyId?
     .from("profiles")
     .select("*")
     .eq("id", investigatorId)
-    .single()
+    .maybeSingle()
 
   if (profileError || !profile) {
     return null
@@ -48,7 +48,7 @@ export async function getInvestigatorWithStats(investigatorId: string, agencyId?
     .from("investigator_stats")
     .select("*")
     .eq("investigator_id", investigatorId)
-    .single()
+    .maybeSingle()
 
   const { data: specialties } = await supabase
     .from("profile_specialties")
@@ -63,7 +63,7 @@ export async function getInvestigatorWithStats(investigatorId: string, agencyId?
       .select("notes")
       .eq("agency_id", agencyId)
       .eq("investigator_id", investigatorId)
-      .single()
+      .maybeSingle()
 
     if (favorite) {
       isFavorite = true
@@ -93,27 +93,22 @@ export async function getInvestigatorWithStats(investigatorId: string, agencyId?
 export async function toggleFavorite(agencyId: string, investigatorId: string, notes?: string) {
   const supabase = await createClient()
 
-  // Check if already favorite
   const { data: existing } = await supabase
     .from("investigator_favorites")
     .select("id")
     .eq("agency_id", agencyId)
     .eq("investigator_id", investigatorId)
-    .single()
+    .maybeSingle()
 
   if (existing) {
-    // Remove from favorites
     const { error } = await supabase.from("investigator_favorites").delete().eq("id", existing.id)
-
     return { isFavorite: false, error }
   } else {
-    // Add to favorites
     const { error } = await supabase.from("investigator_favorites").insert({
       agency_id: agencyId,
       investigator_id: investigatorId,
       notes: notes || null,
     })
-
     return { isFavorite: true, error }
   }
 }

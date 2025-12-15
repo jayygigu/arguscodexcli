@@ -1,26 +1,13 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase-server"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { AgencyNav } from "@/components/agency-nav"
 import { MandatsTable } from "@/components/mandats-table"
 import { LoadingState } from "@/components/loading-state"
 import { Suspense } from "react"
+import { getVerifiedAgencyAuth } from "@/lib/agency-auth"
 
 export default async function MandatsPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/agence/login")
-  }
-
-  const { data: agency } = await supabase.from("agencies").select("*").eq("owner_id", user.id).single()
-
-  if (!agency) {
-    redirect("/agence/dashboard")
-  }
+  const { agency } = await getVerifiedAgencyAuth()
+  const supabase = await createServerSupabaseClient()
 
   let mandates = []
   let mandatesError = null
@@ -31,7 +18,7 @@ export default async function MandatsPage() {
       .select("*")
       .eq("agency_id", agency.id)
       .order("created_at", { ascending: false })
-      .limit(100) // Prevent fetching too many at once
+      .limit(100)
 
     if (error) throw error
     mandates = data || []

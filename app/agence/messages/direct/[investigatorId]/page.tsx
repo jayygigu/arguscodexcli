@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { createClient } from "@/lib/supabase-browser"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Send, Check, CheckCheck, User, Briefcase } from "lucide-react"
@@ -10,17 +10,18 @@ import { usePresence } from "@/hooks/use-presence"
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
 import Link from "next/link"
+import { useAgencyAuth } from "@/hooks/use-agency-auth"
 
 export default function DirectMessagePage() {
   const params = useParams()
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const investigatorId = params.investigatorId as string
 
-  const [user, setUser] = useState<any>(null)
-  const [agency, setAgency] = useState<any>(null)
+  const { agency: authAgency, user: authUser, loading: authLoading } = useAgencyAuth({ requireVerified: true })
+
   const [investigator, setInvestigator] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [messageText, setMessageText] = useState("")
@@ -34,12 +35,13 @@ export default function DirectMessagePage() {
   const { isOnline, statusText } = usePresence(investigatorId)
 
   useEffect(() => {
-    loadData()
-  }, [investigatorId])
+    if (authAgency) {
+      loadData()
+    }
+  }, [investigatorId, authAgency])
 
   useEffect(() => {
     if (messages.length > 0 && !hasScrolledToBottomOnLoad.current) {
-      console.log("[v0] Scrolling to bottom on initial load")
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" })
       hasScrolledToBottomOnLoad.current = true
     }
@@ -52,28 +54,28 @@ export default function DirectMessagePage() {
   }, [messages, userHasScrolledUp])
 
   useEffect(() => {
-    if (messages.length > 0 && agency) {
+    if (messages.length > 0 && authAgency) {
       const unreadMessages = messages.filter((m) => !m.read && m.sender_type === "investigator")
       if (unreadMessages.length > 0) {
         markMessagesAsRead(unreadMessages.map((m) => m.id))
       }
     }
-  }, [messages, agency])
+  }, [messages, authAgency])
 
   useEffect(() => {
-    if (!agency?.id || !investigatorId) return
+    if (!authAgency?.id || !investigatorId) return
 
     console.log("[v0] Setting up real-time subscription for messages")
 
     const channel = supabase
-      .channel(`messages:${agency.id}:${investigatorId}`)
+      .channel(`messages:${authAgency.id}:${investigatorId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `agency_id=eq.${agency.id}`,
+          filter: `agency_id=eq.${authAgency.id}`,
         },
         (payload) => {
           console.log("[v0] New message received:", payload.new)
@@ -88,7 +90,7 @@ export default function DirectMessagePage() {
           event: "UPDATE",
           schema: "public",
           table: "messages",
-          filter: `agency_id=eq.${agency.id}`,
+          filter: `agency_id=eq.${authAgency.id}`,
         },
         (payload) => {
           console.log("[v0] Message updated:", payload.new)
@@ -103,51 +105,13 @@ export default function DirectMessagePage() {
       console.log("[v0] Cleaning up real-time subscription")
       supabase.removeChannel(channel)
     }
-  }, [agency?.id, investigatorId, supabase])
+  }, [authAgency?.id, investigatorId, supabase])
 
   async function loadData() {
     setLoading(true)
     setError(null)
 
     try {
-      const {
-        data: { user: currentUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError) {
-        console.error("[v0] Auth error:", authError)
-        setError("Erreur d'authentification. Veuillez vous reconnecter.")
-        setTimeout(() => router.push("/agence/login"), 2000)
-        return
-      }
-
-      if (!currentUser) {
-        router.push("/agence/login")
-        return
-      }
-
-      setUser(currentUser)
-
-      const { data: agencyData, error: agencyError } = await supabase
-        .from("agencies")
-        .select("*")
-        .eq("owner_id", currentUser.id)
-        .maybeSingle()
-
-      if (agencyError) {
-        console.error("[v0] Agency fetch error:", agencyError)
-        setError("Erreur lors du chargement de l'agence.")
-        return
-      }
-
-      if (!agencyData) {
-        router.push("/agence/dashboard")
-        return
-      }
-
-      setAgency(agencyData)
-
       const { data: investigatorData, error: investigatorError } = await supabase
         .from("profiles")
         .select("*")
@@ -170,7 +134,7 @@ export default function DirectMessagePage() {
       const { data: messagesData, error: messagesError } = await supabase
         .from("messages")
         .select("*")
-        .eq("agency_id", agencyData.id)
+        .eq("agency_id", authAgency.id)
         .eq("investigator_id", investigatorId)
         .order("created_at", { ascending: true })
 
@@ -186,7 +150,7 @@ export default function DirectMessagePage() {
       const { data: mandatesData } = await supabase
         .from("mandates")
         .select("id, title, status")
-        .eq("agency_id", agencyData.id)
+        .eq("agency_id", authAgency.id)
         .or(`assigned_to.eq.${investigatorId}`)
         .order("created_at", { ascending: false })
         .limit(5)
@@ -221,17 +185,17 @@ export default function DirectMessagePage() {
   }
 
   async function handleSendMessage() {
-    if (!messageText.trim() || !user || !agency) return
+    if (!messageText.trim() || !authUser || !authAgency) return
 
     setIsSending(true)
     console.log("[v0] Sending message from agency to investigator")
 
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
-      agency_id: agency.id,
+      agency_id: authAgency.id,
       investigator_id: investigatorId,
       sender_type: "agency",
-      sender_id: user.id,
+      sender_id: authUser.id,
       content: messageText.trim(),
       read: false,
       read_at: null,
@@ -245,10 +209,10 @@ export default function DirectMessagePage() {
     const { data, error } = await supabase
       .from("messages")
       .insert({
-        agency_id: agency.id,
+        agency_id: authAgency.id,
         investigator_id: investigatorId,
         sender_type: "agency",
-        sender_id: user.id,
+        sender_id: authUser.id,
         content: messageText.trim(),
       })
       .select()
@@ -266,37 +230,19 @@ export default function DirectMessagePage() {
     setIsSending(false)
   }
 
-  if (loading) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <AgencyNav currentPage="messages" />
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Chargement de la conversation...</p>
-          </div>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <AgencyNav currentPage="messages" />
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center max-w-md">
-            <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
-              <p className="text-red-800 font-medium mb-2">Erreur</p>
-              <p className="text-red-600 text-sm">{error}</p>
-              <Button onClick={() => loadData()} className="mt-4" variant="outline">
-                Réessayer
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+  if (!authAgency) {
+    return null
   }
 
   return (

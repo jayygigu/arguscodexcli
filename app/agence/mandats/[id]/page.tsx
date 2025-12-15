@@ -9,6 +9,7 @@ import { CandidatureActions } from "@/components/candidature-actions"
 import { StatusBadge } from "@/components/status-badge"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { ActionFeedback } from "@/components/action-feedback"
+import { getVerifiedAgencyAuth } from "@/lib/agency-auth"
 
 function isValidUUID(str: string) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,27 +30,29 @@ export default async function MandateDetailPage({
     redirect("/agence/mandats")
   }
 
+  const { agency } = await getVerifiedAgencyAuth()
+
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/agence/login")
-  }
-
-  const { data: mandate, error: mandateError } = await supabase.from("mandates").select("*").eq("id", id).single()
+  const { data: mandate, error: mandateError } = await supabase
+    .from("mandates")
+    .select("*")
+    .eq("id", id)
+    .eq("agency_id", agency.id)
+    .maybeSingle()
 
   if (mandateError || !mandate) {
     redirect("/agence/mandats")
   }
 
   let assignedInvestigator = null
-  const acceptedCandidatureId = null
 
   if (mandate.assigned_to) {
-    const { data: investigator } = await supabase.from("profiles").select("*").eq("id", mandate.assigned_to).single()
+    const { data: investigator } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", mandate.assigned_to)
+      .maybeSingle()
 
     if (investigator) {
       assignedInvestigator = investigator
@@ -232,7 +235,7 @@ export default async function MandateDetailPage({
                 </div>
               )}
 
-              {assignedInvestigator && acceptedCandidatureId && (
+              {assignedInvestigator && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
                   <div className="flex justify-between items-start">
                     <div>
@@ -269,21 +272,6 @@ export default async function MandateDetailPage({
                         </Button>
                       </Link>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {assignedInvestigator && !acceptedCandidatureId && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-urbanist font-semibold text-yellow-900 mb-2">⚠️ État incohérent</p>
-                      <p className="text-sm font-urbanist text-yellow-800 mb-2">
-                        Enquêteur assigné sans candidature acceptée. Retirer l'assignation pour corriger.
-                      </p>
-                      <p className="font-montserrat font-semibold text-yellow-900">{assignedInvestigator.name}</p>
-                    </div>
-                    <CandidatureActions mandateId={id} action="unassign" />
                   </div>
                 </div>
               )}
@@ -346,7 +334,7 @@ export default async function MandateDetailPage({
                     {new Date(mandate.created_at).toLocaleString("fr-FR")}
                   </p>
                 </div>
-                {mandate.assigned_to && assignedInvestigator && (
+                {assignedInvestigator && (
                   <div>
                     <p className="text-sm font-urbanist text-gray-600">Assigné à</p>
                     <p className="text-sm font-urbanist font-semibold text-gray-900">{assignedInvestigator.name}</p>

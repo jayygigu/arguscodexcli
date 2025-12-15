@@ -39,12 +39,11 @@ export function RatingForm({ mandateId, investigatorId, agencyId, onSuccess }: R
     try {
       const supabase = createClient()
 
-      // Check if rating already exists
       const { data: existingRating } = await supabase
         .from("mandate_ratings")
         .select("id")
         .eq("mandate_id", mandateId)
-        .single()
+        .maybeSingle()
 
       if (existingRating) {
         setError("Vous avez déjà évalué ce mandat")
@@ -52,7 +51,6 @@ export function RatingForm({ mandateId, investigatorId, agencyId, onSuccess }: R
         return
       }
 
-      // Insert rating
       const { error: insertError } = await supabase.from("mandate_ratings").insert({
         mandate_id: mandateId,
         investigator_id: investigatorId,
@@ -64,7 +62,6 @@ export function RatingForm({ mandateId, investigatorId, agencyId, onSuccess }: R
 
       if (insertError) throw insertError
 
-      // Success
       if (onSuccess) {
         onSuccess()
       } else {

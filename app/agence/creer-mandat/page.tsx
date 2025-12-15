@@ -26,7 +26,7 @@ import { NotificationService } from "@/lib/services/notification-service"
 import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { trpc } from "@/lib/trpc-client"
-import { useToast } from "@/hooks/use-toast"
+import { useAgencyAuth } from "@/hooks/use-agency-auth"
 
 type Step = "type" | "details" | "location" | "schedule" | "budget" | "review"
 
@@ -39,18 +39,17 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: "review", label: "Révision finale", icon: Eye },
 ]
 
+const useGeocodeMutation = trpc.mandates.geocode.useMutation
+
 export default function CreateMandatePage() {
   const [currentStep, setCurrentStep] = useState<Step>("type")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [agencyId, setAgencyId] = useState("")
   const [selectedInvestigator, setSelectedInvestigator] = useState<any>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
-  const { createMandate } = useMandates()
-  const geocodeMutation = trpc.mandates.geocode.useMutation()
-  const { toast } = useToast()
+
+  const { agency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
 
   const preselectedInvestigatorId = searchParams.get("investigator")
 
@@ -71,52 +70,7 @@ export default function CreateMandatePage() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
   const [locationError, setLocationError] = useState("")
 
-  const searchLocationByPostalCode = async (postalCode?: string) => {
-    const codeToSearch = postalCode || formData.postal_code
-    setLocationError("")
-
-    // Quebec postal codes start with G, H, or J
-    const cleanPostalCode = codeToSearch.replace(/\s+/g, "").toUpperCase()
-    if (!/^[GHJ]\d[A-Z]\d[A-Z]\d$/.test(cleanPostalCode)) {
-      setLocationError("Le code postal doit commencer par G, H ou J (Québec) et avoir 6 caractères")
-      return
-    }
-
-    setIsLoadingLocation(true)
-    try {
-      const result = await geocodeMutation.mutateAsync({
-        postal_code: codeToSearch,
-        city: formData.city,
-        region: formData.region,
-      })
-
-      if (result.city && result.administrativeRegion) {
-        setFormData((prev) => ({
-          ...prev,
-          postal_code: codeToSearch,
-          city: result.city,
-          region: result.administrativeRegion,
-        }))
-        setLocationError("")
-        toast({
-          title: "✓ Localisation trouvée",
-          description: `${result.city}, ${result.administrativeRegion}`,
-        })
-      } else {
-        setLocationError("Impossible de déterminer la ville et la région pour ce code postal")
-      }
-    } catch (err: any) {
-      console.error("[v0] Geocoding error:", err)
-      setLocationError(err.message || "Erreur lors de la recherche. Veuillez réessayer.")
-      toast({
-        title: "Erreur de géocodage",
-        description: err.message || "Impossible de géocoder ce code postal",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoadingLocation(false)
-    }
-  }
+  const { mutateAsync: searchLocationByPostalCode } = useGeocodeMutation()
 
   const handlePostalCodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -126,25 +80,9 @@ export default function CreateMandatePage() {
   }
 
   useEffect(() => {
-    async function getAgency() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        router.push("/agence/login")
-        return
-      }
-
-      const { data: agency } = await supabase.from("agencies").select("id").eq("owner_id", user.id).single()
-      if (agency) setAgencyId(agency.id)
-    }
-    getAgency()
-  }, [supabase, router])
-
-  useEffect(() => {
     async function loadInvestigator() {
       if (preselectedInvestigatorId) {
-        const { data } = await supabase
+        const { data } = await createClient()
           .from("profiles")
           .select("*, profile_specialties(specialty)")
           .eq("id", preselectedInvestigatorId)
@@ -157,7 +95,22 @@ export default function CreateMandatePage() {
       }
     }
     loadInvestigator()
-  }, [preselectedInvestigatorId, supabase])
+  }, [preselectedInvestigatorId])
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AgencyNav currentPage="mandats" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!agency) {
+    return null
+  }
 
   const canProceedToNextStep = (): boolean => {
     switch (currentStep) {
@@ -213,18 +166,18 @@ export default function CreateMandatePage() {
         duration: formData.duration || "À définir",
         priority: formData.priority,
         budget: formData.budget || "À définir",
-        agency_id: agencyId,
+        agency_id: agency.id,
         assignment_type: formData.assignment_type,
         assigned_to: formData.assignment_type === "direct" ? selectedInvestigator?.id : undefined,
         status: formData.assignment_type === "direct" ? "in-progress" : "open",
       }
 
       console.log("[v0] Creating mandate with data:", mandateData)
-      const createdMandate = await createMandate(mandateData)
+      const createdMandate = await useMandates().createMandate(mandateData)
       console.log("[v0] Mandate created:", createdMandate)
 
       if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
-        await supabase.from("mandate_interests").insert({
+        await createClient().from("mandate_interests").insert({
           mandate_id: createdMandate.id,
           investigator_id: selectedInvestigator.id,
           status: "accepted",
@@ -391,7 +344,13 @@ export default function CreateMandatePage() {
                   />
                   <Button
                     type="button"
-                    onClick={() => searchLocationByPostalCode()}
+                    onClick={() =>
+                      searchLocationByPostalCode({
+                        postal_code: formData.postal_code,
+                        city: formData.city,
+                        region: formData.region,
+                      })
+                    }
                     disabled={isLoadingLocation || formData.postal_code.length < 6}
                     className="h-14 px-6"
                   >
@@ -676,7 +635,7 @@ export default function CreateMandatePage() {
 
   return (
     <>
-      <AgencyNav />
+      <AgencyNav currentPage="mandats" />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Breadcrumb items={[{ label: "Mandats", href: "/agence/mandats" }, { label: "Créer un mandat" }]} />
 
