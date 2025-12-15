@@ -46,9 +46,9 @@ export function AgencyNav({ currentPage }: AgencyNavProps) {
 
   if (loading) {
     return (
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             <div className="h-8 w-8 bg-muted animate-pulse rounded-full" />
           </div>

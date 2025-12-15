@@ -45,6 +45,7 @@ export function AgencyNavClient({
     { href: "/agence/mandats", label: "Mandats", key: "mandats", badge: newApplications },
     { href: "/agence/enqueteurs", label: "Enquêteurs", key: "enqueteurs" },
     { href: "/agence/messages", label: "Messages", key: "messages", badge: unreadMessages },
+    { href: "/agence/profil", label: "Profil", key: "profil" },
   ]
 
   const handleSignOut = async () => {
@@ -66,10 +67,10 @@ export function AgencyNavClient({
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-8">
             <Link href={isVerified ? "/agence/dashboard" : "/agence/profil"} className="flex items-center gap-3">
-              <Image src="/images/argus-logo.png" alt="Argus" width={180} height={180} className="object-contain" />
+              <Image src="/images/argus-logo.png" alt="Argus" width={140} height={40} className="object-contain" />
             </Link>
             {isVerified && (
               <nav className="hidden lg:flex gap-1" aria-label="Navigation principale">
@@ -98,53 +99,6 @@ export function AgencyNavClient({
           </div>
 
           <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`relative h-10 px-3 hover:bg-[#0f4c75]/5 font-urbanist gap-2 ${currentPage === "profil" ? "bg-[#0f4c75]/10 text-[#0f4c75]" : "text-gray-700"}`}
-                  aria-label="Menu profil"
-                >
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                    {agencyLogoUrl ? (
-                      <Image
-                        src={agencyLogoUrl || "/placeholder.svg"}
-                        alt={agencyName}
-                        width={28}
-                        height={28}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-4 w-4 text-primary" />
-                    )}
-                  </div>
-                  <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">{agencyName}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="font-urbanist">
-                  <p className="font-semibold">{agencyName}</p>
-                  <p className="text-xs font-normal text-muted-foreground">Gérer votre agence</p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer font-urbanist">
-                  <Link href="/agence/profil" className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Profil de l'agence
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleSignOut}
-                  className="cursor-pointer font-urbanist text-destructive focus:text-destructive"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Déconnexion
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {isVerified && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -226,6 +180,45 @@ export function AgencyNavClient({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative h-10 px-3 hover:bg-[#0f4c75]/5 font-urbanist gap-2"
+                  aria-label="Menu profil"
+                >
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    {agencyLogoUrl ? (
+                      <Image
+                        src={agencyLogoUrl || "/placeholder.svg"}
+                        alt={agencyName}
+                        width={28}
+                        height={28}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">{agencyName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-urbanist">
+                  <p className="font-semibold">{agencyName}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer font-urbanist text-destructive focus:text-destructive"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -251,15 +244,6 @@ export function AgencyNavClient({
                 </Button>
               </Link>
             ))}
-            <Link href="/agence/profil">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`relative whitespace-nowrap font-urbanist ${currentPage === "profil" ? "bg-[#0f4c75]/10 text-[#0f4c75]" : "text-gray-700"}`}
-              >
-                Profil
-              </Button>
-            </Link>
           </nav>
         )}
       </div>
