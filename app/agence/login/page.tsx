@@ -5,6 +5,7 @@ import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase-browser"
+import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -23,11 +24,9 @@ export default function LoginPage() {
 
     if (error) {
       if (error.message.includes("Invalid login credentials")) {
-        setError(
-          "Email ou mot de passe incorrect. Si vous venez de vous inscrire, vérifiez votre email de confirmation.",
-        )
+        setError("Email ou mot de passe incorrect.")
       } else if (error.message.includes("Email not confirmed")) {
-        setError("Veuillez confirmer votre email avant de vous connecter. Vérifiez votre boîte mail.")
+        setError("Veuillez confirmer votre email avant de vous connecter.")
       } else {
         setError(error.message)
       }
@@ -35,7 +34,7 @@ export default function LoginPage() {
       return
     }
 
-    window.location.href = "/agence/profil"
+    window.location.href = "/agence/dashboard"
   }
 
   return (
@@ -127,8 +126,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#0f4c75] text-white font-urbanist font-semibold text-lg py-4 rounded-xl hover:bg-[#0a3552] transition-colors shadow-lg mt-8 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#0f4c75] text-white font-urbanist font-semibold text-lg py-4 rounded-xl hover:bg-[#0a3552] transition-colors shadow-lg mt-8 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
+            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
             {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>

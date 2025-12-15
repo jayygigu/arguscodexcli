@@ -1,3 +1,5 @@
+"use server"
+
 import type { Database } from "@/types/database.types"
 import { createClient } from "@/lib/supabase-server"
 import { canTransition } from "@/lib/workflow-transitions"

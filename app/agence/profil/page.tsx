@@ -24,41 +24,22 @@ export default async function AgencyProfilePage() {
   const { data: agency } = await supabase.from("agencies").select("*").eq("owner_id", user.id).maybeSingle()
 
   if (!agency) {
-    const metadata = user.user_metadata
-
-    if (metadata?.agency_name && metadata?.user_type === "agency_owner") {
-      const { error: createError } = await supabase.from("agencies").insert({
-        owner_id: user.id,
-        name: metadata.agency_name,
-        license_number: metadata.agency_license || "",
-        contact_name: metadata.name || "",
-        contact_email: user.email || "",
-        contact_phone: metadata.phone || "",
-        address: metadata.agency_address || "",
-        verification_status: "pending",
-      })
-
-      if (!createError) {
-        redirect("/agence/profil")
-      }
-    }
-
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-card border border-border rounded-xl p-8 text-center">
           <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6 text-destructive" />
           </div>
-          <h2 className="text-xl font-montserrat font-bold text-foreground mb-2">Compte non trouvé</h2>
+          <h2 className="text-xl font-montserrat font-bold text-foreground mb-2">Compte non configuré</h2>
           <p className="text-sm text-muted-foreground font-urbanist mb-6">
-            Aucune agence n'est associée à ce compte. Veuillez vous inscrire ou contacter le support.
+            Votre agence n'a pas été créée correctement. Veuillez contacter le support ou vous réinscrire.
           </p>
           <div className="flex flex-col gap-3">
             <Link
               href="/agence/register"
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-urbanist font-medium hover:bg-primary/90 transition-colors"
             >
-              Créer une agence
+              S'inscrire à nouveau
             </Link>
             <Link
               href="/api/auth/signout?redirect=/agence/login"
@@ -77,15 +58,10 @@ export default async function AgencyProfilePage() {
     .select("specialty")
     .eq("agency_id", agency.id)
 
-  // Fetch agency statistics only if verified
-  let stats = {
-    totalMandates: 0,
-    completedMandates: 0,
-    inProgressMandates: 0,
-  }
+  let stats = { totalMandates: 0, completedMandates: 0, inProgressMandates: 0 }
 
   if (agency.verification_status === "verified") {
-    const [{ count: totalMandates }, { count: completedMandates }, { count: inProgressMandates }] = await Promise.all([
+    const [total, completed, inProgress] = await Promise.all([
       supabase.from("mandates").select("*", { count: "exact", head: true }).eq("agency_id", agency.id),
       supabase
         .from("mandates")
@@ -98,11 +74,10 @@ export default async function AgencyProfilePage() {
         .eq("agency_id", agency.id)
         .eq("status", "in-progress"),
     ])
-
     stats = {
-      totalMandates: totalMandates || 0,
-      completedMandates: completedMandates || 0,
-      inProgressMandates: inProgressMandates || 0,
+      totalMandates: total.count || 0,
+      completedMandates: completed.count || 0,
+      inProgressMandates: inProgress.count || 0,
     }
   }
 
@@ -116,7 +91,6 @@ export default async function AgencyProfilePage() {
       <AgencyNav />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Bandeau de statut de vérification */}
         {isPending && (
           <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl">
             <div className="flex items-start gap-3">
@@ -126,8 +100,7 @@ export default async function AgencyProfilePage() {
               <div className="flex-1">
                 <h3 className="font-montserrat font-semibold text-foreground">Vérification en cours</h3>
                 <p className="text-sm text-muted-foreground font-urbanist mt-1">
-                  Votre compte est en attente de validation par notre équipe. Pendant ce temps, vous pouvez compléter
-                  votre profil d'agence ci-dessous (photo, spécialités, informations).
+                  Votre compte est en attente de validation. Vous pouvez compléter votre profil ci-dessous.
                 </p>
                 <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
@@ -153,7 +126,7 @@ export default async function AgencyProfilePage() {
               <div className="flex-1">
                 <h3 className="font-montserrat font-semibold text-destructive">Inscription refusée</h3>
                 <p className="text-sm text-muted-foreground font-urbanist mt-1">
-                  Votre demande n'a pas été approuvée. Veuillez contacter le support pour plus d'informations.
+                  Votre demande n'a pas été approuvée. Contactez le support pour plus d'informations.
                 </p>
                 {agency.rejection_reason && (
                   <p className="text-sm text-foreground font-urbanist mt-2 p-2 bg-muted/50 rounded">
@@ -189,19 +162,12 @@ export default async function AgencyProfilePage() {
         />
 
         <div className="mt-6 space-y-4">
-          {/* Header with logo upload */}
           <AgencyProfileHeader agency={agency} />
-
-          {/* Stats - only show if verified */}
           {agency.verification_status === "verified" && <AgencyProfileStats stats={stats} />}
-
-          {/* Two column grid for info and services */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AgencyProfileInfo agency={agency} />
             <AgencyProfileServices specialties={specialties} agencyId={agency.id} />
           </div>
-
-          {/* Settings at bottom */}
           <AgencyProfileSettings agencyId={agency.id} />
         </div>
       </main>

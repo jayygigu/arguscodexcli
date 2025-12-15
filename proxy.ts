@@ -15,8 +15,6 @@ const PUBLIC_ROUTES = [
   "/admin/login",
 ]
 
-const UNVERIFIED_ALLOWED_ROUTES = ["/agence/profil", "/api/auth/signout"]
-
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -33,76 +31,51 @@ export async function proxy(request: NextRequest) {
     },
   })
 
+  const pathname = request.nextUrl.pathname
+
+  if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/api/")) {
+    return response
+  }
+
+  // Get user once for all checks
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
-
-  // 1. Routes publiques - toujours accessibles
-  const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === route || (route !== "/" && pathname.startsWith(route + "/")),
-  )
-  if (isPublicRoute) {
-    return response
-  }
-
-  // 2. Routes API - laisser passer (elles gèrent leur propre auth)
-  if (pathname.startsWith("/api/")) {
-    return response
-  }
-
-  // 3. Routes admin - vérifier si admin
   if (pathname.startsWith("/admin")) {
     if (!user) {
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
-
-    // Vérifier si l'utilisateur est admin
     const { data: adminUser } = await supabase.from("admin_users").select("id").eq("user_id", user.id).maybeSingle()
 
-    if (!adminUser && pathname !== "/admin/login") {
+    if (!adminUser) {
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
-
     return response
   }
 
-  // 4. Routes agence - vérifier authentification
   if (pathname.startsWith("/agence")) {
-    // Non connecté -> login
     if (!user) {
       return NextResponse.redirect(new URL("/agence/login", request.url))
     }
 
-    // Vérifier si la route est autorisée sans vérification
-    const isUnverifiedAllowed = UNVERIFIED_ALLOWED_ROUTES.some(
-      (route) => pathname === route || pathname.startsWith(route + "/"),
-    )
-
-    // Si route autorisée pour non-vérifiés, laisser passer
-    if (isUnverifiedAllowed) {
+    // Profile page is always accessible for logged-in users
+    if (pathname === "/agence/profil") {
       return response
     }
 
-    // Pour toutes les autres routes, vérifier le statut de l'agence
+    // For all other agency pages, check verification status
     const { data: agency } = await supabase
       .from("agencies")
       .select("verification_status")
       .eq("owner_id", user.id)
       .maybeSingle()
 
-    // Pas d'agence -> profil
-    if (!agency) {
+    // No agency or not verified -> profile page
+    if (!agency || agency.verification_status !== "verified") {
       return NextResponse.redirect(new URL("/agence/profil", request.url))
     }
 
-    // Agence non vérifiée -> profil
-    if (agency.verification_status !== "verified") {
-      return NextResponse.redirect(new URL("/agence/profil", request.url))
-    }
-
-    // Agence vérifiée -> accès autorisé
     return response
   }
 

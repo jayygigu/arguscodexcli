@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
+import { useState, useEffect } from "react"
 import {
   Users,
   Shield,
@@ -18,15 +19,6 @@ import {
 import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 
-interface AdminSidebarProps {
-  adminUser: {
-    id: string
-    user_id: string
-    role: string
-    permissions: any
-  }
-}
-
 const navigation = [
   { name: "Tableau de bord", href: "/admin", icon: LayoutDashboard },
   { name: "Comptes en attente", href: "/admin/pending", icon: Clock },
@@ -38,9 +30,23 @@ const navigation = [
   { name: "Paramètres", href: "/admin/settings", icon: Settings },
 ]
 
-export function AdminSidebar({ adminUser }: AdminSidebarProps) {
+export function AdminSidebar() {
   const pathname = usePathname()
   const supabase = createClient()
+  const [role, setRole] = useState<string>("admin")
+
+  useEffect(() => {
+    async function fetchRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from("admin_users").select("role").eq("user_id", user.id).maybeSingle()
+        if (data?.role) setRole(data.role)
+      }
+    }
+    fetchRole()
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -89,7 +95,7 @@ export function AdminSidebar({ adminUser }: AdminSidebarProps) {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-urbanist font-medium text-foreground truncate">Administrateur</p>
             <p className="text-xs text-muted-foreground capitalize">
-              {adminUser.role === "super_admin" ? "Super Admin" : "Admin"}
+              {role === "super_admin" ? "Super Admin" : "Admin"}
             </p>
           </div>
         </div>

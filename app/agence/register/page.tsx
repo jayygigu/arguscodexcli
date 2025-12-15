@@ -66,61 +66,42 @@ export default function RegisterPage() {
             user_type: "agency_owner",
           },
           emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/agence/profil`,
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/agence/dashboard`,
         },
       })
 
       if (authError) {
-        const errorMsg = authError.message?.toLowerCase() || ""
-        if (errorMsg.includes("already") || errorMsg.includes("exists")) {
+        if (
+          authError.message?.toLowerCase().includes("already") ||
+          authError.message?.toLowerCase().includes("exists")
+        ) {
           setError("Un compte existe déjà avec cet email")
         } else {
-          throw authError
+          setError(authError.message)
         }
         setLoading(false)
         return
       }
 
       if (!authData.user) {
-        throw new Error("Erreur lors de la création du compte")
+        setError("Erreur lors de la création du compte")
+        setLoading(false)
+        return
       }
 
+      // Check if auto-confirmed (session exists)
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
       if (session) {
-        const { data: existingAgency } = await supabase
-          .from("agencies")
-          .select("id")
-          .eq("owner_id", authData.user.id)
-          .maybeSingle()
-
-        if (!existingAgency) {
-          const { error: agencyError } = await supabase.from("agencies").insert({
-            owner_id: authData.user.id,
-            name: formData.agencyName,
-            license_number: formData.licenseNumber,
-            contact_name: formData.contactName,
-            contact_email: formData.email,
-            contact_phone: formData.contactPhone || "N/A",
-            address: `${formData.contactAddress}, ${formData.city}, ${formData.postalCode}`.trim(),
-            verification_status: "pending",
-          })
-
-          if (agencyError) {
-            setError(`Erreur lors de la création de l'agence: ${agencyError.message}`)
-            setLoading(false)
-            return
-          }
-        }
-
-        window.location.href = "/agence/profil"
+        // Auto-confirmed, redirect to dashboard (proxy will route appropriately)
+        window.location.href = "/agence/dashboard"
       } else {
+        // Email confirmation required
         setSuccess(true)
       }
     } catch (err: any) {
-      console.error("[v0] Registration error:", err)
       setError(err.message || "Une erreur est survenue lors de l'inscription")
     } finally {
       setLoading(false)
@@ -162,7 +143,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-block mb-4">
             <Image src="/images/argus-logo.png" alt="Argus" width={140} height={56} className="object-contain" />
@@ -173,7 +153,6 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleRegister} className="bg-card border border-border rounded-lg">
           {/* Section 1: Responsable */}
           <div className="p-6 border-b border-border">
@@ -359,7 +338,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="mx-6 mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
@@ -367,7 +345,6 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Submit */}
           <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-muted-foreground font-urbanist">
               <span className="text-destructive">*</span> Champs obligatoires
@@ -391,7 +368,6 @@ export default function RegisterPage() {
           </div>
         </form>
 
-        {/* Footer */}
         <p className="text-center text-xs text-muted-foreground font-urbanist mt-4">
           Vous avez déjà un compte?{" "}
           <Link href="/agence/login" className="text-primary underline">

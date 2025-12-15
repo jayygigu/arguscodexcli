@@ -4,14 +4,14 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 export interface AgencyAuthResult {
   user: any
   agency: any
+  supabase: any
 }
 
 /**
  * Récupère l'utilisateur et l'agence pour les pages serveur
  * Note: La vérification d'accès est déjà faite dans proxy.ts
- * Cette fonction est utilisée pour récupérer les données de l'agence
  */
-export async function getAgencyAuth(): Promise<AgencyAuthResult> {
+export async function getAgencyData(): Promise<AgencyAuthResult> {
   const supabase = await createServerSupabaseClient()
 
   const {
@@ -24,17 +24,8 @@ export async function getAgencyAuth(): Promise<AgencyAuthResult> {
 
   const { data: agency } = await supabase.from("agencies").select("*").eq("owner_id", user.id).maybeSingle()
 
-  if (!agency) {
-    redirect("/agence/profil")
-  }
-
-  return { user, agency }
+  return { user, agency, supabase }
 }
 
-/**
- * Alias pour getAgencyAuth - la vérification est maintenant centralisée dans proxy.ts
- * Gardé pour compatibilité avec le code existant
- */
-export async function getVerifiedAgencyAuth(): Promise<AgencyAuthResult> {
-  return getAgencyAuth()
-}
+export const getVerifiedAgencyAuth = getAgencyData
+export const getAgencyAuth = getAgencyData
