@@ -19,10 +19,15 @@ export default function ResetPasswordPage() {
   const [hasValidSession, setHasValidSession] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     const checkSession = async () => {
+      const supabase = createClient()
+      if (!supabase) {
+        setCheckingSession(false)
+        return
+      }
+
       try {
         const {
           data: { session },
@@ -41,7 +46,7 @@ export default function ResetPasswordPage() {
     }
 
     checkSession()
-  }, [supabase.auth])
+  }, [])
 
   async function handleUpdatePassword(e: React.FormEvent) {
     e.preventDefault()
@@ -56,6 +61,13 @@ export default function ResetPasswordPage() {
 
     if (password.length < 6) {
       setError("Le mot de passe doit contenir au moins 6 caractères")
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+    if (!supabase) {
+      setError("Erreur de connexion")
       setLoading(false)
       return
     }
