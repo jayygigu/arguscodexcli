@@ -4,7 +4,7 @@
 
 ## public
 
-\`\`\`sql
+```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -132,11 +132,11 @@ CREATE TABLE public.unavailable_dates (
   CONSTRAINT unavailable_dates_pkey PRIMARY KEY (id),
   CONSTRAINT unavailable_dates_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
 );
-\`\`\`
+```
 
 ## auth
 
-\`\`\`sql
+```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -393,11 +393,11 @@ CREATE TABLE auth.users (
   is_anonymous boolean NOT NULL DEFAULT false,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
-\`\`\`
+```
 
 ## realtime
 
-\`\`\`sql
+```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -482,11 +482,11 @@ CREATE TABLE realtime.subscription (
   created_at timestamp without time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT subscription_pkey PRIMARY KEY (id)
 );
-\`\`\`
+```
 
 ## storage
 
-\`\`\`sql
+```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -573,11 +573,11 @@ CREATE TABLE storage.s3_multipart_uploads_parts (
   CONSTRAINT s3_multipart_uploads_parts_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES storage.s3_multipart_uploads(id),
   CONSTRAINT s3_multipart_uploads_parts_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id)
 );
-\`\`\`
+```
 
 ## vault
 
-\`\`\`sql
+```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -592,4 +592,4 @@ CREATE TABLE vault.secrets (
   updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT secrets_pkey PRIMARY KEY (id)
 );
-\`\`\`
+```
