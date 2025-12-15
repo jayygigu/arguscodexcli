@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
-import { MandateValidationService } from "@/lib/services/mandate-validation"
+import { validateAssignment } from "@/lib/services/mandate-validation"
 import {
   notifyCandidatureAccepted,
   notifyCandidatureRejected,
@@ -57,7 +57,7 @@ export async function acceptCandidatureAction(
       return { success: false, error: "Non authentifié" }
     }
 
-    const validation = await MandateValidationService.validateAssignment(mandateId, investigatorId)
+    const validation = await validateAssignment(mandateId, investigatorId)
     if (!validation.valid) {
       return { success: false, error: validation.reason || "Impossible d'assigner cet enquêteur" }
     }
@@ -453,7 +453,7 @@ export async function directAssignInvestigatorAction(
       return { success: false, error: "Non authentifié" }
     }
 
-    const validation = await MandateValidationService.validateAssignment(mandateId, investigatorId)
+    const validation = await validateAssignment(mandateId, investigatorId)
     if (!validation.valid) {
       return { success: false, error: validation.reason || "Impossible d'assigner cet enquêteur" }
     }
