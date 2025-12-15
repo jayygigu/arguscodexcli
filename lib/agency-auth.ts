@@ -7,9 +7,9 @@ export interface AgencyAuthResult {
 }
 
 /**
- * Vérifie l'authentification et retourne l'agence
- * Redirige vers login si non connecté
- * Redirige vers profil si agence non trouvée
+ * Récupère l'utilisateur et l'agence pour les pages serveur
+ * Note: La vérification d'accès est déjà faite dans proxy.ts
+ * Cette fonction est utilisée pour récupérer les données de l'agence
  */
 export async function getAgencyAuth(): Promise<AgencyAuthResult> {
   const supabase = await createServerSupabaseClient()
@@ -32,15 +32,9 @@ export async function getAgencyAuth(): Promise<AgencyAuthResult> {
 }
 
 /**
- * Vérifie l'authentification ET que l'agence est vérifiée
- * Redirige vers profil si non vérifiée
+ * Alias pour getAgencyAuth - la vérification est maintenant centralisée dans proxy.ts
+ * Gardé pour compatibilité avec le code existant
  */
 export async function getVerifiedAgencyAuth(): Promise<AgencyAuthResult> {
-  const { user, agency } = await getAgencyAuth()
-
-  if (agency.verification_status !== "verified") {
-    redirect("/agence/profil")
-  }
-
-  return { user, agency }
+  return getAgencyAuth()
 }

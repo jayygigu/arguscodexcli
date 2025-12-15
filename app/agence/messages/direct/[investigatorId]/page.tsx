@@ -65,8 +65,6 @@ export default function DirectMessagePage() {
   useEffect(() => {
     if (!authAgency?.id || !investigatorId) return
 
-    console.log("[v0] Setting up real-time subscription for messages")
-
     const channel = supabase
       .channel(`messages:${authAgency.id}:${investigatorId}`)
       .on(
@@ -78,7 +76,6 @@ export default function DirectMessagePage() {
           filter: `agency_id=eq.${authAgency.id}`,
         },
         (payload) => {
-          console.log("[v0] New message received:", payload.new)
           if (payload.new.investigator_id === investigatorId) {
             setMessages((prev) => [...prev, payload.new])
           }
@@ -93,7 +90,6 @@ export default function DirectMessagePage() {
           filter: `agency_id=eq.${authAgency.id}`,
         },
         (payload) => {
-          console.log("[v0] Message updated:", payload.new)
           if (payload.new.investigator_id === investigatorId) {
             setMessages((prev) => prev.map((m) => (m.id === payload.new.id ? payload.new : m)))
           }
@@ -102,7 +98,6 @@ export default function DirectMessagePage() {
       .subscribe()
 
     return () => {
-      console.log("[v0] Cleaning up real-time subscription")
       supabase.removeChannel(channel)
     }
   }, [authAgency?.id, investigatorId, supabase])
@@ -119,7 +114,6 @@ export default function DirectMessagePage() {
         .single()
 
       if (investigatorError) {
-        console.error("[v0] Investigator fetch error:", investigatorError)
         setError("Erreur lors du chargement de l'enquêteur.")
         return
       }
@@ -139,12 +133,10 @@ export default function DirectMessagePage() {
         .order("created_at", { ascending: true })
 
       if (messagesError) {
-        console.error("[v0] Messages fetch error:", messagesError)
         setError("Erreur lors du chargement des messages.")
         return
       }
 
-      console.log("[v0] Loaded messages:", messagesData?.length ?? 0)
       setMessages(messagesData || [])
 
       const { data: mandatesData } = await supabase
@@ -159,7 +151,6 @@ export default function DirectMessagePage() {
 
       setLoading(false)
     } catch (err) {
-      console.error("[v0] Unexpected error in loadData:", err)
       setError("Une erreur inattendue s'est produite. Veuillez réessayer.")
       setLoading(false)
     }
@@ -168,16 +159,12 @@ export default function DirectMessagePage() {
   async function markMessagesAsRead(messageIds: string[]) {
     if (messageIds.length === 0) return
 
-    console.log("[v0] Marking messages as read:", messageIds)
-
     const { error } = await supabase
       .from("messages")
       .update({ read: true, read_at: new Date().toISOString() })
       .in("id", messageIds)
 
-    if (error) {
-      console.error("[v0] Error marking messages as read:", error)
-    } else {
+    if (!error) {
       setMessages((prev) =>
         prev.map((m) => (messageIds.includes(m.id) ? { ...m, read: true, read_at: new Date().toISOString() } : m)),
       )
@@ -188,7 +175,6 @@ export default function DirectMessagePage() {
     if (!messageText.trim() || !authUser || !authAgency) return
 
     setIsSending(true)
-    console.log("[v0] Sending message from agency to investigator")
 
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
@@ -219,11 +205,9 @@ export default function DirectMessagePage() {
       .single()
 
     if (error) {
-      console.error("[v0] Error sending message:", error)
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id))
       setMessageText(messageText.trim())
     } else {
-      console.log("[v0] Message sent successfully:", data)
       setMessages((prev) => prev.map((m) => (m.id === optimisticMessage.id ? data : m)))
     }
 
@@ -284,7 +268,6 @@ export default function DirectMessagePage() {
                 </div>
               </div>
 
-              {/* Quick action buttons */}
               <div className="flex gap-2">
                 <Link href={`/agence/enqueteurs/${investigatorId}`}>
                   <Button variant="outline" size="sm" className="gap-2 font-urbanist bg-transparent">
@@ -303,7 +286,6 @@ export default function DirectMessagePage() {
               </div>
             </div>
 
-            {/* Context banner for related mandates */}
             {relatedMandates.length > 0 && (
               <div className="mt-3 p-3 bg-[#0f4c75]/5 border border-[#0f4c75]/20 rounded-lg">
                 <p className="text-xs font-urbanist text-gray-600 mb-2">Mandats actifs avec cet enquêteur:</p>

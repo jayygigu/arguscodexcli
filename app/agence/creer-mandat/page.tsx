@@ -71,6 +71,7 @@ export default function CreateMandatePage() {
   const [locationError, setLocationError] = useState("")
 
   const { mutateAsync: searchLocationByPostalCode } = useGeocodeMutation()
+  const { createMandate } = useMandates()
 
   const handlePostalCodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -152,8 +153,6 @@ export default function CreateMandatePage() {
     setLoading(true)
     setError("")
 
-    console.log("[v0] Submitting mandate creation form")
-
     try {
       const mandateData = {
         title: formData.title,
@@ -172,9 +171,7 @@ export default function CreateMandatePage() {
         status: formData.assignment_type === "direct" ? "in-progress" : "open",
       }
 
-      console.log("[v0] Creating mandate with data:", mandateData)
-      const createdMandate = await useMandates().createMandate(mandateData)
-      console.log("[v0] Mandate created:", createdMandate)
+      const createdMandate = await createMandate(mandateData)
 
       if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
         await createClient().from("mandate_interests").insert({
@@ -188,7 +185,6 @@ export default function CreateMandatePage() {
 
       router.push(`/agence/mandats/${createdMandate.id}`)
     } catch (err: any) {
-      console.error("[v0] Error creating mandate:", err)
       setError(err.message || "Impossible de créer le mandat")
       setLoading(false)
     }

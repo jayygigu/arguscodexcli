@@ -16,12 +16,8 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
   const isCurrentlyTypingRef = useRef(false)
 
   useEffect(() => {
-    if (!currentUserId || !conversationId) {
-      console.log("[v0] Skipping typing indicators - missing currentUserId or conversationId")
-      return
-    }
+    if (!currentUserId || !conversationId) return
 
-    // Fetch initial typing indicators
     const fetchTypingIndicators = async () => {
       const { data } = await supabase
         .from("typing_indicators")
@@ -43,7 +39,6 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
 
     fetchTypingIndicators()
 
-    // Subscribe to real-time changes
     const channel = supabase
       .channel(`typing-indicators-${conversationId}`)
       .on(
@@ -57,8 +52,6 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
         (payload) => {
           if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
             const indicator = payload.new as any
-
-            // Don't show our own typing indicator
             if (indicator.user_id === currentUserId) return
 
             if (indicator.is_typing) {
@@ -99,10 +92,7 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
   }, [])
 
   const sendTypingIndicator = async (isTyping: boolean, userName: string) => {
-    if (!currentUserId) {
-      console.log("[v0] Skipping typing indicator - no currentUserId")
-      return
-    }
+    if (!currentUserId) return
 
     try {
       await supabase.from("typing_indicators").upsert(
@@ -113,31 +103,22 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
           is_typing: isTyping,
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: "conversation_id,user_id",
-        },
+        { onConflict: "conversation_id,user_id" },
       )
     } catch (error) {
-      console.error("[v0] Error sending typing indicator:", error)
+      // Silent fail for typing indicators
     }
   }
 
   const startTyping = (userName: string) => {
-    // Clear any existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
 
-    // Only send the typing indicator if we're not already showing as typing
     if (!isCurrentlyTypingRef.current) {
-      console.log("[v0] User started typing")
       sendTypingIndicator(true, userName)
       isCurrentlyTypingRef.current = true
     }
 
-    // Set a timeout to automatically stop typing after 5 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      console.log("[v0] Typing timeout - stopping typing indicator")
       sendTypingIndicator(false, userName)
       isCurrentlyTypingRef.current = false
     }, 5000)
@@ -149,9 +130,7 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
       typingTimeoutRef.current = null
     }
 
-    // Only send stop indicator if we were showing as typing
     if (isCurrentlyTypingRef.current) {
-      console.log("[v0] User stopped typing")
       sendTypingIndicator(false, userName)
       isCurrentlyTypingRef.current = false
     }

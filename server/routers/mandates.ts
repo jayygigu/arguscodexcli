@@ -9,8 +9,6 @@ import {
 } from "@/lib/geocoding-utils"
 
 async function geocodePostalCode(postalCode: string, city: string, region: string) {
-  console.log("[v0] Starting geocoding process:", { postalCode, city, region })
-
   try {
     const cleanPostalCode = postalCode.replace(/\s+/g, "").toUpperCase()
 
@@ -19,7 +17,6 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
     }
 
     const geocodeUrl = `https://geoegl.msp.gouv.qc.ca/apis/icherche/geocode?type=adresses&geometry=1&limit=1&q=${cleanPostalCode}`
-    console.log("[v0] Calling Quebec geocoding API:", geocodeUrl)
 
     const geocodeData = await retryWithBackoff(async () => {
       const response = await fetchWithTimeout(
@@ -46,8 +43,6 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
       return data
     }, 3)
 
-    console.log("[v0] Quebec geocoding response:", JSON.stringify(geocodeData, null, 2))
-
     const feature = geocodeData.features[0]
     const coordinates = feature.geometry.coordinates
     const longitude = coordinates[0]
@@ -57,19 +52,12 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
       throw new Error("Les coordonnées ne sont pas au Québec. Veuillez vérifier le code postal.")
     }
 
-    console.log("[v0] Coordinates validated:", { latitude, longitude })
-
     const addressName = feature.properties.nom || ""
     const cityFromAddress = extractCityFromAddress(addressName) || city
 
-    console.log("[v0] Extracted city:", cityFromAddress)
-
     let administrativeRegion = region
 
-    // Method 1: Try the administrative division API with retry
     try {
-      console.log("[v0] Attempting to fetch administrative region from API...")
-
       const adminData = await retryWithBackoff(async () => {
         const adminUrl = `https://automatereq.diligenceinv.ca/decoupageadminqc/${longitude},${latitude}`
         const response = await fetchWithTimeout(
@@ -95,9 +83,6 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
         return await response.json()
       }, 2)
 
-      console.log("[v0] Administrative division response:", JSON.stringify(adminData, null, 2))
-
-      // Try different possible field names
       const possibleRegionFields = [
         "region",
         "nom_region",
@@ -112,28 +97,21 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
       for (const field of possibleRegionFields) {
         if (adminData[field]) {
           administrativeRegion = adminData[field]
-          console.log(`[v0] Found region in field '${field}':`, administrativeRegion)
           break
         }
       }
-    } catch (adminError: any) {
-      console.log("[v0] Administrative division API failed:", adminError.message)
+    } catch {
+      // Silent fail - will try to infer from city
     }
 
-    // Method 2: Infer from city name if API failed
     if (!administrativeRegion || administrativeRegion === region) {
-      console.log("[v0] Attempting to infer region from city name...")
       const inferredRegion = inferRegionFromCity(cityFromAddress)
-
       if (inferredRegion) {
         administrativeRegion = inferredRegion
-        console.log("[v0] Inferred region from city:", administrativeRegion)
-      } else {
-        console.log("[v0] Could not infer region from city:", cityFromAddress)
       }
     }
 
-    const result = {
+    return {
       latitude,
       longitude,
       city: cityFromAddress,
@@ -144,12 +122,7 @@ async function geocodePostalCode(postalCode: string, city: string, region: strin
           ? "Géocodage réussi"
           : "Ville trouvée, mais la région n'a pas pu être déterminée automatiquement",
     }
-
-    console.log("[v0] Final geocoding result:", result)
-    return result
   } catch (error: any) {
-    console.error("[v0] Geocoding failed:", error)
-
     let errorMessage = "Impossible de géocoder le code postal."
 
     if (error.message.includes("invalide")) {

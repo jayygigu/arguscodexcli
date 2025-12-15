@@ -138,24 +138,22 @@ export function AgencyProfileHeader({ agency }: { agency: Agency }) {
             )}
           </div>
 
-          {/* Upload overlay - visible in edit mode or on hover */}
-          {isEditing && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingLogo}
-              className="absolute inset-0 bg-black/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-opacity"
-            >
-              {isUploadingLogo ? (
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              ) : (
-                <>
-                  <Camera className="w-6 h-6 text-white mb-1" />
-                  <span className="text-xs text-white font-urbanist">Modifier</span>
-                </>
-              )}
-            </button>
-          )}
+          {/* Upload overlay - always visible on hover */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingLogo}
+            className="absolute inset-0 bg-black/60 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-opacity opacity-0 group-hover:opacity-100"
+          >
+            {isUploadingLogo ? (
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            ) : (
+              <>
+                <Camera className="w-6 h-6 text-white mb-1" />
+                <span className="text-xs text-white font-urbanist">Modifier</span>
+              </>
+            )}
+          </button>
 
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
         </div>

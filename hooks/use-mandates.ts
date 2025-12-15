@@ -31,8 +31,6 @@ export function useMandates() {
       region: input.region,
     })
 
-    console.log("[v0] Geocoded data:", { latitude, longitude, administrativeRegion })
-
     const mandateData = {
       ...input,
       postal_code: formatQuebecPostalCode(input.postal_code),

@@ -44,20 +44,13 @@ export function useMessages(params: UseMessagesParams) {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     queryFn: async (): Promise<MessageRow[]> => {
-      console.log("[v0] Fetching messages for agency:", agencyId)
-
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("agency_id", agencyId)
         .order("created_at", { ascending: true })
 
-      if (error) {
-        console.error("[v0] Error fetching messages:", error)
-        throw error
-      }
-
-      console.log("[v0] Loaded messages:", data?.length ?? 0)
+      if (error) throw error
       return data ?? []
     },
   })
@@ -66,7 +59,6 @@ export function useMessages(params: UseMessagesParams) {
     if (!enabled || !agencyId) return
 
     const channelName = `messages-${agencyId}`
-    console.log("[v0] Setting up real-time subscription:", channelName)
 
     const channel = supabase
       .channel(channelName)
@@ -80,15 +72,10 @@ export function useMessages(params: UseMessagesParams) {
         },
         (payload) => {
           const newMessage = payload.new as MessageRow
-          console.log("[v0] New message received via Realtime:", newMessage)
 
           queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
             const prev = old ?? []
-            if (prev.some((m) => m.id === newMessage.id)) {
-              console.log("[v0] Message already exists, skipping")
-              return prev
-            }
-            console.log("[v0] Adding new message to cache")
+            if (prev.some((m) => m.id === newMessage.id)) return prev
             return [...prev, newMessage]
           })
 
@@ -112,7 +99,6 @@ export function useMessages(params: UseMessagesParams) {
         },
         (payload) => {
           const updatedMessage = payload.new as MessageRow
-          console.log("[v0] Message updated via Realtime:", updatedMessage)
 
           queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
             const prev = old ?? []
@@ -120,12 +106,9 @@ export function useMessages(params: UseMessagesParams) {
           })
         },
       )
-      .subscribe((status) => {
-        console.log("[v0] Subscription status:", status)
-      })
+      .subscribe()
 
     return () => {
-      console.log("[v0] Cleaning up subscription:", channelName)
       supabase.removeChannel(channel)
     }
   }, [enabled, agencyId, queryClient, supabase, profile?.id])
@@ -133,8 +116,6 @@ export function useMessages(params: UseMessagesParams) {
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       if (!profile) throw new Error("Profile not loaded")
-
-      console.log("[v0] Sending message:", { agencyId, content })
 
       const tempId = `temp-${Date.now()}`
       const tempMessage: MessageRow = {
@@ -166,14 +147,11 @@ export function useMessages(params: UseMessagesParams) {
         .single()
 
       if (error) {
-        console.error("[v0] Error sending message:", error)
         queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
           return (old ?? []).filter((m) => m.id !== tempId)
         })
         throw error
       }
-
-      console.log("[v0] Message sent successfully")
 
       queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
         return (old ?? []).map((m) => (m.id === tempId ? data : m))
@@ -185,8 +163,6 @@ export function useMessages(params: UseMessagesParams) {
 
   const markAsRead = useMutation({
     mutationFn: async (messageIds: string[]) => {
-      console.log("[v0] Marking messages as read:", messageIds)
-
       queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
         return (old ?? []).map((m) =>
           messageIds.includes(m.id) ? { ...m, read: true, read_at: new Date().toISOString() } : m,
@@ -199,12 +175,9 @@ export function useMessages(params: UseMessagesParams) {
         .in("id", messageIds)
 
       if (error) {
-        console.error("[v0] Error marking messages as read:", error)
         queryClient.invalidateQueries({ queryKey: ["messages", agencyId] })
         throw error
       }
-
-      console.log("[v0] Messages marked as read")
     },
   })
 

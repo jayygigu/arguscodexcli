@@ -1,5 +1,5 @@
 -- Fix Row Level Security policies for messages table
--- This ensures investigators can see messages from agencies and vice versa
+-- This script uses agency_id and investigator_id (not mandate_id) 
 
 -- 1. Drop existing policies to start fresh
 DROP POLICY IF EXISTS "Users can view their messages" ON messages;
@@ -9,48 +9,31 @@ DROP POLICY IF EXISTS "Users can send messages" ON messages;
 DROP POLICY IF EXISTS "Users can insert messages" ON messages;
 DROP POLICY IF EXISTS "Users can update messages" ON messages;
 DROP POLICY IF EXISTS "Users can update message status" ON messages;
+DROP POLICY IF EXISTS "Users can view conversation messages" ON messages;
+DROP POLICY IF EXISTS "Users can insert their messages" ON messages;
+DROP POLICY IF EXISTS "Users can only view their own messages" ON messages;
+DROP POLICY IF EXISTS "Users can only send messages as themselves" ON messages;
+DROP POLICY IF EXISTS "Users can only update their own messages" ON messages;
 
 -- 2. Create comprehensive SELECT policy
--- This allows users to see ALL messages in conversations they're part of
+-- Uses investigator_id instead of mandate_id
 CREATE POLICY "Users can view conversation messages" ON messages
 FOR SELECT USING (
   -- I can see my own messages (messages I sent)
   sender_id = auth.uid()
   OR
-  -- I can see messages from agencies I'm in conversation with
-  -- (if I'm an investigator who has sent messages to this agency)
-  (
-    sender_type = 'agency' 
-    AND agency_id IN (
-      SELECT DISTINCT agency_id 
-      FROM messages 
-      WHERE sender_id = auth.uid()
-    )
-  )
+  -- I can see messages where I'm the investigator
+  investigator_id = auth.uid()
   OR
   -- Agencies can see all messages in their conversations
-  -- (if I'm an agency owner, I can see all messages for my agency)
-  (
-    EXISTS (
-      SELECT 1 FROM agencies 
-      WHERE agencies.id = messages.agency_id 
-      AND agencies.owner_id = auth.uid()
-    )
-  )
-  OR
-  -- I can see messages sent to me in mandate-based conversations
-  (
-    mandate_id IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM mandate_interests mi
-      WHERE mi.mandate_id = messages.mandate_id
-      AND mi.investigator_id = auth.uid()
-    )
+  EXISTS (
+    SELECT 1 FROM agencies 
+    WHERE agencies.id = messages.agency_id 
+    AND agencies.owner_id = auth.uid()
   )
 );
 
 -- 3. Create INSERT policy
--- Users can only insert messages as themselves
 CREATE POLICY "Users can insert their messages" ON messages
 FOR INSERT WITH CHECK (
   sender_id = auth.uid()
@@ -64,11 +47,10 @@ FOR INSERT WITH CHECK (
 );
 
 -- 4. Create UPDATE policy
--- Users can update messages to mark them as read
 CREATE POLICY "Users can update message status" ON messages
 FOR UPDATE USING (
-  -- I can update messages that were sent to me (to mark as read)
-  sender_id != auth.uid()
+  -- I can update messages in my conversations (to mark as read)
+  investigator_id = auth.uid()
   OR
   -- Agency owners can update their agency's messages
   EXISTS (
@@ -78,8 +60,7 @@ FOR UPDATE USING (
   )
 )
 WITH CHECK (
-  -- Same conditions for the updated row
-  sender_id != auth.uid()
+  investigator_id = auth.uid()
   OR
   EXISTS (
     SELECT 1 FROM agencies 
@@ -88,13 +69,18 @@ WITH CHECK (
   )
 );
 
--- 5. Verify Realtime is enabled for messages table
--- This ensures real-time subscriptions work
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+-- 5. Verify Realtime is enabled for messages table (ignore error if already added)
+DO $$ 
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 6. Create indexes for better query performance
+-- Uses investigator_id instead of mandate_id
 CREATE INDEX IF NOT EXISTS idx_messages_agency_sender ON messages(agency_id, sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_mandate ON messages(mandate_id) WHERE mandate_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_investigator ON messages(investigator_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
 
 -- 7. Add helpful comment

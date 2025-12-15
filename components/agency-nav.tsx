@@ -18,7 +18,7 @@ export async function AgencyNav({ currentPage }: AgencyNavProps) {
 
   const { data: agency } = await supabase
     .from("agencies")
-    .select("id, name, logo")
+    .select("id, name, logo, verification_status")
     .eq("owner_id", user.id)
     .maybeSingle()
 
@@ -32,6 +32,7 @@ export async function AgencyNav({ currentPage }: AgencyNavProps) {
       agencyId={agency.id}
       agencyName={agency.name}
       agencyLogoUrl={agency.logo}
+      isVerified={agency.verification_status === "verified"}
     />
   )
 }

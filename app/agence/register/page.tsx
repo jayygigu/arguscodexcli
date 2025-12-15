@@ -90,8 +90,6 @@ export default function RegisterPage() {
       } = await supabase.auth.getSession()
 
       if (session) {
-        console.log("[v0] User created, checking agency...")
-
         const { data: existingAgency } = await supabase
           .from("agencies")
           .select("id")
@@ -99,8 +97,6 @@ export default function RegisterPage() {
           .maybeSingle()
 
         if (!existingAgency) {
-          console.log("[v0] Agency not created by trigger, creating manually...")
-
           const { error: agencyError } = await supabase.from("agencies").insert({
             owner_id: authData.user.id,
             name: formData.agencyName,
@@ -113,20 +109,14 @@ export default function RegisterPage() {
           })
 
           if (agencyError) {
-            console.error("[v0] Failed to create agency:", agencyError)
             setError(`Erreur lors de la création de l'agence: ${agencyError.message}`)
             setLoading(false)
             return
           }
-
-          console.log("[v0] Agency created manually")
-        } else {
-          console.log("[v0] Agency exists, proceeding...")
         }
 
         window.location.href = "/agence/profil"
       } else {
-        // No session = need email confirmation
         setSuccess(true)
       }
     } catch (err: any) {

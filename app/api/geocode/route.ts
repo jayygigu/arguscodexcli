@@ -17,8 +17,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] Searching for postal code:", cleanPostalCode)
-
     const geocodeUrl = `https://geoegl.msp.gouv.qc.ca/apis/icherche/geocode?type=adresses&geometry=1&limit=1&q=${cleanPostalCode}`
 
     const geocodeResponse = await fetch(geocodeUrl, {
@@ -29,7 +27,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (!geocodeResponse.ok) {
-      console.error("[v0] iCherche API error:", geocodeResponse.status)
       return NextResponse.json(
         { error: "Erreur lors de la recherche du code postal. Veuillez réessayer." },
         { status: geocodeResponse.status },
@@ -37,7 +34,6 @@ export async function POST(request: NextRequest) {
     }
 
     const geocodeData = await geocodeResponse.json()
-    console.log("[v0] iCherche response:", JSON.stringify(geocodeData, null, 2))
 
     if (!geocodeData.features || geocodeData.features.length === 0) {
       return NextResponse.json(
@@ -52,37 +48,25 @@ export async function POST(request: NextRequest) {
     const feature = geocodeData.features[0]
 
     if (!feature.geometry || !feature.geometry.coordinates) {
-      return NextResponse.json(
-        {
-          error: "Impossible d'obtenir les coordonnées pour ce code postal.",
-        },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: "Impossible d'obtenir les coordonnées pour ce code postal." }, { status: 404 })
     }
 
     const [longitude, latitude] = feature.geometry.coordinates
-    console.log("[v0] Coordinates found:", { longitude, latitude })
 
     const decoupageUrl = `https://pautomatereq.diligenceinv.ca/decoupageadminqc/${longitude},${latitude}`
 
     const decoupageResponse = await fetch(decoupageUrl, {
-      headers: {
-        Accept: "application/json",
-      },
+      headers: { Accept: "application/json" },
     })
 
     if (!decoupageResponse.ok) {
-      console.error("[v0] Découpage API error:", decoupageResponse.status)
       return NextResponse.json(
-        {
-          error: "Impossible de déterminer la ville et la région pour ce code postal.",
-        },
+        { error: "Impossible de déterminer la ville et la région pour ce code postal." },
         { status: 404 },
       )
     }
 
     const decoupageData = await decoupageResponse.json()
-    console.log("[v0] Découpage response:", JSON.stringify(decoupageData, null, 2))
 
     let city = ""
     let region = ""
@@ -99,7 +83,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!city || !region) {
-      console.error("[v0] Could not extract city or region from découpage data")
       return NextResponse.json(
         {
           error:
@@ -109,15 +92,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] Successfully geocoded:", { city, region, coordinates: [longitude, latitude] })
-
     return NextResponse.json({
       city,
       region,
       coordinates: [longitude, latitude],
     })
   } catch (error: any) {
-    console.error("[v0] Geocoding error:", error)
     return NextResponse.json(
       { error: "Erreur lors de la recherche de localisation. Veuillez réessayer." },
       { status: 500 },

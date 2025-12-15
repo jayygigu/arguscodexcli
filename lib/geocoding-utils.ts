@@ -127,7 +127,6 @@ export const QUEBEC_CITY_TO_REGION: Record<string, string> = {
   "Saint-Hyacinthe": "Montérégie",
   Châteauguay: "Montérégie",
   Drummondville: "Montérégie",
-  Granby: "Montérégie",
   "Saint-Bruno-de-Montarville": "Montérégie",
   Chambly: "Montérégie",
   Beloeil: "Montérégie",
@@ -140,7 +139,6 @@ export const QUEBEC_CITY_TO_REGION: Record<string, string> = {
 
   // Centre-du-Québec (17)
   Victoriaville: "Centre-du-Québec",
-  Drummondville: "Centre-du-Québec",
   Plessisville: "Centre-du-Québec",
   Nicolet: "Centre-du-Québec",
 }
@@ -149,7 +147,6 @@ export const QUEBEC_CITY_TO_REGION: Record<string, string> = {
  * Validates if coordinates are within Quebec boundaries
  */
 export function isInQuebec(latitude: number, longitude: number): boolean {
-  // Quebec approximate boundaries
   const MIN_LAT = 45.0
   const MAX_LAT = 62.0
   const MIN_LON = -79.8
@@ -169,11 +166,9 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 3, 
       return await fn()
     } catch (error: any) {
       lastError = error
-      console.log(`[v0] Retry attempt ${attempt + 1}/${maxRetries} failed:`, error.message)
 
       if (attempt < maxRetries - 1) {
         const delay = initialDelay * Math.pow(2, attempt)
-        console.log(`[v0] Waiting ${delay}ms before retry...`)
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
@@ -209,13 +204,10 @@ export async function fetchWithTimeout(url: string, options: RequestInit = {}, t
  * Extract city name from Quebec geocoding API address
  */
 export function extractCityFromAddress(address: string): string | null {
-  // Format: "3424 avenue Monseigneur-Gosselin, Québec G1C5J3"
   const parts = address.split(",")
   if (parts.length < 2) return null
 
-  // Get the part before the postal code
   const cityPart = parts[1].trim()
-  // Remove postal code if present
   const city = cityPart.split(/\s+[A-Z]\d[A-Z]/)[0].trim()
 
   return city || null
@@ -225,12 +217,10 @@ export function extractCityFromAddress(address: string): string | null {
  * Infer administrative region from city name
  */
 export function inferRegionFromCity(city: string): string | null {
-  // Try exact match first
   if (QUEBEC_CITY_TO_REGION[city]) {
     return QUEBEC_CITY_TO_REGION[city]
   }
 
-  // Try case-insensitive match
   const cityLower = city.toLowerCase()
   for (const [knownCity, region] of Object.entries(QUEBEC_CITY_TO_REGION)) {
     if (knownCity.toLowerCase() === cityLower) {
@@ -238,7 +228,6 @@ export function inferRegionFromCity(city: string): string | null {
     }
   }
 
-  // Try partial match (for cities with arrondissements)
   for (const [knownCity, region] of Object.entries(QUEBEC_CITY_TO_REGION)) {
     if (cityLower.includes(knownCity.toLowerCase()) || knownCity.toLowerCase().includes(cityLower)) {
       return region

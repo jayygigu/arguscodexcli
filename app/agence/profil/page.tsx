@@ -24,43 +24,22 @@ export default async function AgencyProfilePage() {
   const { data: agency } = await supabase.from("agencies").select("*").eq("owner_id", user.id).maybeSingle()
 
   if (!agency) {
-    console.log("[v0] No agency found for user, checking metadata...")
-
-    const {
-      data: { user: fullUser },
-    } = await supabase.auth.getUser()
-    const metadata = fullUser?.user_metadata
+    const metadata = user.user_metadata
 
     if (metadata?.agency_name && metadata?.user_type === "agency_owner") {
-      console.log("[v0] User metadata has agency info, creating agency...")
-
       const { error: createError } = await supabase.from("agencies").insert({
         owner_id: user.id,
         name: metadata.agency_name,
         license_number: metadata.agency_license || "",
         contact_name: metadata.name || "",
-        contact_email: fullUser.email || "",
+        contact_email: user.email || "",
         contact_phone: metadata.phone || "",
         address: metadata.agency_address || "",
         verification_status: "pending",
       })
 
       if (!createError) {
-        console.log("[v0] Agency created from metadata, reloading...")
-        // Reload page to show the agency
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-card border border-border rounded-xl p-8 text-center">
-              <h2 className="text-xl font-montserrat font-bold text-foreground mb-2">Configuration de votre agence</h2>
-              <p className="text-sm text-muted-foreground font-urbanist mb-4">
-                Veuillez patienter pendant que nous préparons votre espace...
-              </p>
-              <script dangerouslySetInnerHTML={{ __html: "setTimeout(() => window.location.reload(), 1000);" }} />
-            </div>
-          </div>
-        )
-      } else {
-        console.error("[v0] Failed to create agency from metadata:", createError)
+        redirect("/agence/profil")
       }
     }
 

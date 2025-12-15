@@ -131,15 +131,15 @@ DROP POLICY IF EXISTS "Users can view messages they are part of" ON messages;
 DROP POLICY IF EXISTS "Users can send messages" ON messages;
 DROP POLICY IF EXISTS "Users can update their messages" ON messages;
 
--- Fixed messages RLS to match actual schema (no receiver_id column)
+-- Fixed: removed mandate_id reference, use agency_id and investigator_id instead
 -- Les utilisateurs peuvent voir les messages dont ils font partie
--- (soit comme expéditeur, soit comme propriétaire de l'agence)
 CREATE POLICY "Users can view messages they are part of"
   ON messages FOR SELECT
   TO authenticated
   USING (
-    sender_id = auth.uid() OR 
-    EXISTS (
+    sender_id = auth.uid() 
+    OR investigator_id = auth.uid()
+    OR EXISTS (
       SELECT 1 FROM agencies 
       WHERE id = agency_id AND owner_id = auth.uid()
     )
@@ -156,8 +156,9 @@ CREATE POLICY "Users can update their messages"
   ON messages FOR UPDATE
   TO authenticated
   USING (
-    sender_id = auth.uid() OR 
-    EXISTS (
+    sender_id = auth.uid() 
+    OR investigator_id = auth.uid()
+    OR EXISTS (
       SELECT 1 FROM agencies 
       WHERE id = agency_id AND owner_id = auth.uid()
     )
@@ -239,7 +240,6 @@ CREATE POLICY "Users can view unavailable dates"
   ON unavailable_dates FOR SELECT
   USING (true);
 
--- Fixed column name from investigator_id to profile_id
 -- Les utilisateurs peuvent gérer leurs propres dates
 CREATE POLICY "Users can manage their own unavailable dates"
   ON unavailable_dates FOR ALL
@@ -329,9 +329,8 @@ BEGIN
   v_is_agency := (v_agency_name IS NOT NULL AND v_agency_name != '');
 
   -- Créer le profil utilisateur
-  -- Pour les agences, créer un profil minimal sans données d'enquêteur
   IF v_is_agency THEN
-    -- Profil minimal pour propriétaire d'agence (pas un enquêteur)
+    -- Profil minimal pour propriétaire d'agence
     INSERT INTO public.profiles (id, name, email, phone)
     VALUES (
       new.id,
@@ -342,12 +341,7 @@ BEGIN
   ELSE
     -- Profil complet pour enquêteur
     INSERT INTO public.profiles (
-      id, 
-      name, 
-      email, 
-      phone,
-      availability_status,
-      years_experience
+      id, name, email, phone, availability_status, years_experience
     )
     VALUES (
       new.id,
@@ -365,13 +359,7 @@ BEGIN
     v_agency_description := new.raw_user_meta_data->>'agency_description';
     
     INSERT INTO public.agencies (
-      owner_id,
-      name,
-      contact_name,
-      contact_phone,
-      contact_email,
-      contact_address,
-      description
+      owner_id, name, contact_name, contact_phone, contact_email, contact_address, description
     )
     VALUES (
       new.id,
@@ -395,40 +383,34 @@ CREATE TRIGGER on_auth_user_created
   EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================
--- 11. INDEX pour performance
+-- 11. INDEX pour performance (idempotent)
 -- ============================================
 
--- Index sur mandates
 CREATE INDEX IF NOT EXISTS idx_mandates_agency_id ON mandates(agency_id);
 CREATE INDEX IF NOT EXISTS idx_mandates_status ON mandates(status);
 CREATE INDEX IF NOT EXISTS idx_mandates_date_required ON mandates(date_required);
 CREATE INDEX IF NOT EXISTS idx_mandates_created_at ON mandates(created_at DESC);
 
--- Removed index on non-existent receiver_id column
--- Index sur messages
-CREATE INDEX IF NOT EXISTS idx_messages_mandate_id ON messages(mandate_id);
+-- Fixed: use agency_id and investigator_id instead of mandate_id for messages
 CREATE INDEX IF NOT EXISTS idx_messages_agency_id ON messages(agency_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_investigator_id ON messages(investigator_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
 
--- Index sur notifications
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 
--- Index sur mandate_interests
 CREATE INDEX IF NOT EXISTS idx_mandate_interests_mandate_id ON mandate_interests(mandate_id);
 CREATE INDEX IF NOT EXISTS idx_mandate_interests_investigator_id ON mandate_interests(investigator_id);
 CREATE INDEX IF NOT EXISTS idx_mandate_interests_status ON mandate_interests(status);
 
--- Index sur agencies
 CREATE INDEX IF NOT EXISTS idx_agencies_owner_id ON agencies(owner_id);
 
 -- ============================================
--- 12. Contraintes supplémentaires
+-- 12. Contraintes supplémentaires (idempotent)
 -- ============================================
 
--- Éviter les doublons dans mandate_interests
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -444,10 +426,3 @@ END $$;
 -- ============================================
 -- FIN DU SCRIPT
 -- ============================================
-
--- Afficher un message de confirmation
-DO $$ 
-BEGIN
-  RAISE NOTICE 'Configuration complète terminée avec succès !';
-  RAISE NOTICE 'Toutes les politiques RLS, triggers et index sont en place.';
-END $$;
