@@ -28,12 +28,17 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
+    console.log("[v0] AgencyProvider fetchData started")
 
     try {
+      const supabase = createClient()
+      console.log("[v0] AgencyProvider supabase client:", !!supabase)
+
       const {
         data: { user: authUser },
+        error: userError,
       } = await supabase.auth.getUser()
+      console.log("[v0] AgencyProvider getUser - user:", !!authUser, "error:", userError?.message)
 
       if (!authUser) {
         setUser(null)
@@ -44,14 +49,16 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
 
       setUser(authUser)
 
-      const { data: agencyData } = await supabase
+      const { data: agencyData, error: agencyError } = await supabase
         .from("agencies")
         .select("id, name, logo, verification_status")
         .eq("owner_id", authUser.id)
         .maybeSingle()
 
+      console.log("[v0] AgencyProvider agency query - data:", !!agencyData, "error:", agencyError?.message)
       setAgency(agencyData)
-    } catch {
+    } catch (err) {
+      console.error("[v0] AgencyProvider fetchData error:", err)
       setUser(null)
       setAgency(null)
     } finally {
@@ -60,12 +67,14 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    console.log("[v0] AgencyProvider useEffect mount")
     fetchData()
 
     const supabase = createClient()
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
+      console.log("[v0] AgencyProvider onAuthStateChange:", event)
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchData()
       } else if (event === "SIGNED_OUT") {
