@@ -215,64 +215,64 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
 
   return (
     <div className="space-y-4">
-      <div className="fixed bottom-6 right-6 z-50 group">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 group">
         <Link href="/agence/creer-mandat">
           <Button
             size="lg"
-            className="rounded-full shadow-lg h-14 w-14 p-0 hover:scale-110 transition-transform"
+            className="rounded-full shadow-lg h-12 w-12 sm:h-14 sm:w-14 p-0 hover:scale-110 transition-transform"
             title="Créer un nouveau mandat (Ctrl+N)"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
             <span className="sr-only">Créer un mandat</span>
           </Button>
         </Link>
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden sm:block">
           Créer un mandat (Ctrl+N)
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Gestion des Mandats</h1>
-            <p className="text-sm text-gray-600">Suivez et gérez tous vos mandats en cours et complétés</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Gestion des Mandats</h1>
+            <p className="text-xs sm:text-sm text-gray-600">Suivez et gérez tous vos mandats en cours et complétés</p>
           </div>
-          <TabsList className="bg-white shadow-sm">
+          <TabsList className="bg-white shadow-sm w-full sm:w-auto">
             <TabsTrigger
               value="active"
-              className="gap-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900"
+              className="flex-1 sm:flex-initial gap-1 sm:gap-2 text-xs sm:text-sm data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900"
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
               Actifs ({activeMandates.length})
             </TabsTrigger>
             <TabsTrigger
               value="completed"
-              className="gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-900"
+              className="flex-1 sm:flex-initial gap-1 sm:gap-2 text-xs sm:text-sm data-[state=active]:bg-green-50 data-[state=active]:text-green-900"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" />
               Terminés ({completedMandates.length})
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex-1 min-w-[300px]">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 mb-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   id="mandate-search"
-                  placeholder="Rechercher par titre, description, ville... (appuyez sur /)"
+                  placeholder="Rechercher..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 border-gray-300 focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 h-9 sm:h-10 border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-10 w-[180px] border-gray-300">
+                <SelectTrigger className="h-9 sm:h-10 w-full sm:w-[140px] lg:w-[180px] border-gray-300 text-sm">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -286,7 +286,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="h-10 w-[150px] border-gray-300">
+                <SelectTrigger className="h-9 sm:h-10 w-full sm:w-[120px] lg:w-[150px] border-gray-300 text-sm">
                   <SelectValue placeholder="Priorité" />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,7 +300,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
 
               {activeTab === "active" && (
                 <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-                  <SelectTrigger className="h-10 w-[150px] border-gray-300">
+                  <SelectTrigger className="h-9 sm:h-10 w-full sm:w-[120px] lg:w-[150px] border-gray-300 text-sm">
                     <SelectValue placeholder="Statut" />
                   </SelectTrigger>
                   <SelectContent>
@@ -316,21 +316,21 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
                   variant="ghost"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="text-gray-600 hover:text-gray-900"
+                  className="text-gray-600 hover:text-gray-900 h-9 sm:h-10"
                 >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Réinitialiser
+                  <XCircle className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Réinitialiser</span>
                 </Button>
               )}
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">
+          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <span className="text-xs sm:text-sm font-medium text-gray-700">
               {filteredMandates.length} mandat{filteredMandates.length > 1 ? "s" : ""}
               {hasActiveFilters ? " correspondant aux filtres" : " au total"}
             </span>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
               <kbd className="px-2 py-1 bg-gray-100 rounded border border-gray-300">J</kbd>
               <span>/</span>
               <kbd className="px-2 py-1 bg-gray-100 rounded border border-gray-300">K</kbd>
@@ -343,17 +343,17 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
         </div>
 
         <TabsContent value={activeTab} className="mt-0">
-          <div className="flex h-[calc(100vh-20rem)] gap-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-20rem)] gap-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {/* Left column - Mandate list */}
-            <div className="w-[420px] bg-gray-50 flex flex-col border-r border-gray-200">
+            <div className="w-full lg:w-[420px] bg-gray-50 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 max-h-[50vh] lg:max-h-none">
               <div className="flex-1 overflow-y-auto">
                 {filteredMandates.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
-                    <AlertCircle className="w-12 h-12 mb-3 text-gray-300" />
-                    <p className="text-base font-medium text-center mb-1">
+                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-gray-500 p-6 sm:p-8">
+                    <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 mb-3 text-gray-300" />
+                    <p className="text-sm sm:text-base font-medium text-center mb-1">
                       {hasActiveFilters ? "Aucun mandat trouvé" : "Aucun mandat"}
                     </p>
-                    <p className="text-sm text-center text-gray-400 mb-4">
+                    <p className="text-xs sm:text-sm text-center text-gray-400 mb-4">
                       {hasActiveFilters
                         ? "Essayez d'ajuster vos filtres de recherche"
                         : "Créez votre premier mandat pour commencer"}
@@ -387,51 +387,51 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
                         <button
                           key={mandate.id}
                           onClick={() => setSelectedMandateId(mandate.id)}
-                          className={`w-full text-left p-5 hover:bg-white transition-all ${
+                          className={`w-full text-left p-3 sm:p-5 hover:bg-white transition-all ${
                             isSelected ? "bg-white shadow-md border-l-4 border-l-blue-600 -ml-1" : "hover:shadow-sm"
                           }`}
                         >
-                          <div className="space-y-3">
-                            <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-2 sm:space-y-3">
+                            <div className="flex items-start justify-between gap-2 sm:gap-3">
                               <h3
-                                className={`font-semibold text-base leading-tight line-clamp-2 ${
+                                className={`font-semibold text-sm sm:text-base leading-tight line-clamp-2 ${
                                   isSelected ? "text-gray-900" : "text-gray-800"
                                 }`}
                               >
                                 {mandate.title}
                               </h3>
-                              <div className="flex flex-col gap-1.5 items-end flex-shrink-0">
+                              <div className="flex flex-col gap-1 items-end flex-shrink-0">
                                 {isUrgent && (
-                                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
+                                  <span className="text-[10px] sm:text-xs bg-orange-100 text-orange-700 px-1.5 sm:px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                     {daysUntil}j
                                   </span>
                                 )}
                                 {activeTab === "active" && pendingCandidatures > 0 && (
-                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
-                                    {pendingCandidatures} candidature{pendingCandidatures > 1 ? "s" : ""}
+                                  <span className="text-[10px] sm:text-xs bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                    {pendingCandidatures} cand.
                                   </span>
                                 )}
                                 {mandate.status === "in-progress" && (
-                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                  <span className="text-[10px] sm:text-xs bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
                                     En cours
                                   </span>
                                 )}
                                 {mandate.status === "completed" && (
-                                  <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" />
+                                  <span className="text-[10px] sm:text-xs bg-gray-100 text-gray-700 px-1.5 sm:px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center gap-1">
+                                    <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                     Terminé
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3 text-xs">
-                              <span className="font-medium text-gray-900 bg-gray-100 px-2.5 py-1 rounded">
+                            <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+                              <span className="font-medium text-gray-900 bg-gray-100 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded truncate max-w-[80px] sm:max-w-none">
                                 {getSpecialtyLabel(mandate.type)}
                               </span>
                               <span
-                                className={`font-medium px-2.5 py-1 rounded ${
+                                className={`font-medium px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded ${
                                   mandate.priority === "urgent"
                                     ? "bg-red-100 text-red-700"
                                     : mandate.priority === "high"
@@ -443,22 +443,20 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
                               </span>
                             </div>
 
-                            <div className="flex items-center justify-between text-xs text-gray-600">
-                              <div className="flex items-center gap-1.5">
-                                <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                <span className="truncate">
-                                  {mandate.city}, {mandate.region}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-gray-500">
-                                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                            <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-600">
+                              <span className="flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{mandate.city}</span>
+                              </span>
+                              <span className="flex items-center gap-1 text-gray-500">
+                                <Clock className="w-3 h-3 flex-shrink-0" />
                                 <span className="whitespace-nowrap">
                                   {new Date(mandate.date_required).toLocaleDateString("fr-FR", {
                                     day: "numeric",
                                     month: "short",
                                   })}
                                 </span>
-                              </div>
+                              </span>
                             </div>
 
                             {mandate.assigned_investigator && (
@@ -477,7 +475,7 @@ export function MandatsTable({ activeMandates, completedMandates, agencyId }: Ma
             </div>
 
             {/* Right column - Mandate details */}
-            <div className="flex-1 bg-white overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-[300px] lg:min-h-0">
               {selectedMandate ? (
                 <div className="h-full flex flex-col">
                   <div className="p-6 border-b bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">

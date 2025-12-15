@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Star, MapPin, Briefcase, ChevronRight, Award, UserCheck, X, Users, Loader2 } from "lucide-react"
+import { Search, Star, MapPin, ChevronRight, UserCheck, X, Users, Loader2 } from "lucide-react"
 import { FavoriteButton } from "@/components/favorite-button"
 import { SPECIALTIES, getSpecialtyLabel } from "@/constants/specialties"
 import { QUEBEC_MAJOR_CITIES } from "@/constants/quebec-regions"
@@ -193,24 +193,31 @@ export default function InvestigatorsPage() {
     <div className="min-h-screen bg-background">
       <AgencyNav />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Breadcrumb items={[]} currentLabel="Enquêteurs" />
 
         {isSelectionMode && (
-          <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex items-center justify-between">
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                  <UserCheck className="h-5 w-5 text-primary-foreground" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+                  <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-montserrat font-semibold text-foreground">Sélection d'enquêteur</h3>
-                  <p className="text-sm text-muted-foreground font-urbanist">
-                    Choisissez un enquêteur pour l'attribution directe de votre mandat
+                  <h3 className="font-montserrat font-semibold text-foreground text-sm sm:text-base">
+                    Sélection d'enquêteur
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground font-urbanist">
+                    Choisissez un enquêteur pour l'attribution directe
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={handleCancelSelection} className="bg-transparent">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelSelection}
+                className="bg-transparent w-full sm:w-auto"
+              >
                 <X className="h-4 w-4 mr-2" />
                 Annuler
               </Button>
@@ -218,33 +225,31 @@ export default function InvestigatorsPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-montserrat font-bold text-foreground mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-montserrat font-bold text-foreground mb-2">
             {isSelectionMode ? "Sélectionner un enquêteur" : "Répertoire des enquêteurs"}
           </h1>
-          <p className="text-muted-foreground font-urbanist">
+          <p className="text-sm text-muted-foreground font-urbanist">
             {isSelectionMode
               ? "Choisissez l'enquêteur idéal pour votre mandat"
-              : "Découvrez les enquêteurs professionnels disponibles sur la plateforme"}
+              : "Découvrez les enquêteurs professionnels disponibles"}
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 p-4 bg-card border border-border rounded-lg">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-card border border-border rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par nom ou ville..."
+                placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-background"
+                className="pl-10 bg-background h-9 sm:h-10 text-sm"
               />
             </div>
 
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-              <SelectTrigger className="bg-background">
+              <SelectTrigger className="bg-background h-9 sm:h-10 text-sm">
                 <SelectValue placeholder="Spécialité" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +263,7 @@ export default function InvestigatorsPage() {
             </Select>
 
             <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-              <SelectTrigger className="bg-background">
+              <SelectTrigger className="bg-background h-9 sm:h-10 text-sm">
                 <SelectValue placeholder="Région" />
               </SelectTrigger>
               <SelectContent>
@@ -271,55 +276,56 @@ export default function InvestigatorsPage() {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox
                   checked={showFavoritesOnly}
                   onCheckedChange={(checked) => setShowFavoritesOnly(checked === true)}
                 />
-                <span className="text-sm font-urbanist text-foreground">Favoris</span>
+                <span className="text-xs sm:text-sm font-urbanist text-foreground">Favoris</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={availableOnly} onCheckedChange={(checked) => setAvailableOnly(checked === true)} />
-                <span className="text-sm font-urbanist text-foreground">Disponibles</span>
+                <span className="text-xs sm:text-sm font-urbanist text-foreground">Dispo.</span>
               </label>
             </div>
           </div>
         </div>
 
-        {/* Results count */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground font-urbanist">
+        <div className="mb-3 sm:mb-4 flex items-center justify-between">
+          <p className="text-xs sm:text-sm text-muted-foreground font-urbanist">
             {filteredInvestigators.length} enquêteur{filteredInvestigators.length > 1 ? "s" : ""} trouvé
             {filteredInvestigators.length > 1 ? "s" : ""}
           </p>
         </div>
 
-        {/* Investigators List */}
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="p-4 border border-border rounded-lg bg-card">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
+              <div key={i} className="p-3 sm:p-4 border border-border rounded-lg bg-card">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <Skeleton className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-4 w-32 sm:w-48" />
+                    <Skeleton className="h-3 w-24 sm:w-32" />
                   </div>
-                  <Skeleton className="h-9 w-24" />
+                  <Skeleton className="h-8 sm:h-9 w-20 sm:w-24" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredInvestigators.length === 0 ? (
-          <div className="text-center py-16 border border-border rounded-lg bg-card">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="font-montserrat font-semibold text-foreground mb-2">Aucun enquêteur trouvé</h3>
-            <p className="text-sm text-muted-foreground font-urbanist mb-4">
+          <div className="text-center py-12 sm:py-16 border border-border rounded-lg bg-card">
+            <Users className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="font-montserrat font-semibold text-foreground mb-2 text-sm sm:text-base">
+              Aucun enquêteur trouvé
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground font-urbanist mb-4">
               Modifiez vos filtres pour voir plus de résultats
             </p>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setSearchQuery("")
                 setSelectedSpecialty("all")
@@ -333,7 +339,7 @@ export default function InvestigatorsPage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {filteredInvestigators.map((investigator) => {
               const availability = getAvailabilityConfig(investigator.availability_status)
 
@@ -341,76 +347,65 @@ export default function InvestigatorsPage() {
                 <div
                   key={investigator.id}
                   className={`
-                    p-4 border rounded-lg bg-card transition-all
+                    p-3 sm:p-4 border rounded-lg bg-card transition-all
                     ${isSelectionMode ? "cursor-pointer hover:border-primary hover:bg-primary/5" : "border-border"}
                   `}
                   onClick={isSelectionMode ? () => handleSelectInvestigator(investigator) : undefined}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg font-semibold text-primary-foreground">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                      <span className="text-base sm:text-lg font-semibold text-primary-foreground">
                         {investigator.name?.charAt(0).toUpperCase()}
                       </span>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-montserrat font-semibold text-foreground truncate">{investigator.name}</h3>
-                        <Badge variant="outline" className={availability.className}>
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
+                        <h3 className="font-montserrat font-semibold text-foreground text-sm sm:text-base truncate">
+                          {investigator.name}
+                        </h3>
+                        <Badge variant="outline" className={`${availability.className} text-[10px] sm:text-xs`}>
                           {availability.label}
                         </Badge>
                         {investigator.is_favorite && (
-                          <Star className="h-4 w-4 text-amber-500 fill-amber-500 flex-shrink-0" />
+                          <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500 fill-amber-500 flex-shrink-0" />
                         )}
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground font-urbanist">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground font-urbanist">
                         <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
+                          <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           {investigator.city}
                         </span>
-                        {investigator.years_experience && (
-                          <span className="flex items-center gap-1">
-                            <Briefcase className="h-3.5 w-3.5" />
-                            {investigator.years_experience} ans
-                          </span>
-                        )}
                         {investigator.stats?.average_rating && (
                           <span className="flex items-center gap-1 text-amber-600">
-                            <Star className="h-3.5 w-3.5 fill-current" />
+                            <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
                             {investigator.stats.average_rating.toFixed(1)}
                           </span>
                         )}
-                        {investigator.stats?.total_mandates_completed != null &&
-                          investigator.stats.total_mandates_completed > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Award className="h-3.5 w-3.5" />
-                              {investigator.stats.total_mandates_completed} mandats
-                            </span>
-                          )}
                       </div>
 
                       {investigator.profile_specialties?.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {investigator.profile_specialties.slice(0, 3).map((s) => (
-                            <Badge key={s.specialty} variant="secondary" className="text-xs font-normal">
+                        <div className="hidden xs:flex flex-wrap gap-1 sm:gap-1.5 mt-2">
+                          {investigator.profile_specialties.slice(0, 2).map((s) => (
+                            <Badge key={s.specialty} variant="secondary" className="text-[10px] sm:text-xs font-normal">
                               {getSpecialtyLabel(s.specialty)}
                             </Badge>
                           ))}
-                          {investigator.profile_specialties.length > 3 && (
-                            <Badge variant="secondary" className="text-xs font-normal">
-                              +{investigator.profile_specialties.length - 3}
+                          {investigator.profile_specialties.length > 2 && (
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal">
+                              +{investigator.profile_specialties.length - 2}
                             </Badge>
                           )}
                         </div>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                       {isSelectionMode ? (
                         <Button
                           size="sm"
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm h-8 sm:h-9"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleSelectInvestigator(investigator)
@@ -428,9 +423,14 @@ export default function InvestigatorsPage() {
                             />
                           )}
                           <Link href={`/agence/enqueteurs/${investigator.id}`}>
-                            <Button variant="outline" size="sm" className="bg-transparent">
-                              Voir le profil
-                              <ChevronRight className="h-4 w-4 ml-1" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-transparent h-8 sm:h-9 text-xs sm:text-sm"
+                            >
+                              <span className="hidden sm:inline">Voir le profil</span>
+                              <span className="sm:hidden">Profil</span>
+                              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1" />
                             </Button>
                           </Link>
                         </>

@@ -56,27 +56,25 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-background">
       <AgencyNav />
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl font-montserrat font-bold text-foreground">Bonjour, {agency.name}</h1>
-            <p className="text-muted-foreground font-urbanist mt-1">
+            <h1 className="text-xl sm:text-2xl font-montserrat font-bold text-foreground">Bonjour, {agency.name}</h1>
+            <p className="text-sm text-muted-foreground font-urbanist mt-1">
               {isNewUser
                 ? "Bienvenue sur Argus. Créez votre premier mandat pour commencer."
                 : `${stats.interestsCount} candidature${stats.interestsCount !== 1 ? "s" : ""} en attente de réponse`}
             </p>
           </div>
           <Link href="/agence/creer-mandat">
-            <Button className="bg-primary hover:bg-primary/90 font-urbanist">
+            <Button className="bg-primary hover:bg-primary/90 font-urbanist w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Nouveau mandat
             </Button>
           </Link>
         </div>
 
-        {/* Section principale: Candidatures */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <PendingCandidatures candidatures={pendingCandidatures || []} />
           <MandatesWithoutCandidatures mandates={mandatesWithoutCandidatures || []} />
         </div>
