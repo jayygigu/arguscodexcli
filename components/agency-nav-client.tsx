@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 
 interface AgencyNavClientProps {
   currentPage?: string
@@ -35,7 +35,6 @@ export function AgencyNavClient({
   isVerified = false,
 }: AgencyNavClientProps) {
   const router = useRouter()
-  const supabase = createClient()
   const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(
     isVerified ? agencyId : "",
   )
@@ -51,10 +50,13 @@ export function AgencyNavClient({
     { href: "/agence/profil", label: "Profil", key: "profil" },
   ]
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
+  const handleSignOut = useCallback(async () => {
+    const supabase = createClient()
+    if (supabase) {
+      await supabase.auth.signOut()
+    }
     router.push("/agence/login")
-  }
+  }, [router])
 
   const formatRelativeTime = (timestamp: string) => {
     const now = new Date()
@@ -161,7 +163,7 @@ export function AgencyNavClient({
                       {item.label}
                       {item.badge !== undefined && item.badge > 0 && (
                         <span
-                          className="absolute -top-1 -right-1 bg-[#0f4c75] text-white text-xs h-5 min-w-5 flex items-center justify-center px-1 rounded-full font-semibold"
+                          className="absolute -top-1 -right-1 bg-[#0f4c75] text-white text-xs h-5 min-w-5 flex items-center justify-center px-1 rounded-full font-semibold text-[10px]"
                           aria-label={`${item.badge} ${item.key === "messages" ? "messages non lus" : "nouvelles candidatures"}`}
                         >
                           {item.badge}
