@@ -40,19 +40,44 @@ export function createClient() {
   const url = SUPABASE_URL_INLINE.trim()
   const key = SUPABASE_ANON_KEY_INLINE.trim()
 
-  // Validate before creating
-  if (!url || !key) {
-    throw new Error(`Supabase configuration invalid: url=${!!url}, key=${!!key}`)
+  // Validate before creating - throw early if invalid
+  if (!url || url.length === 0) {
+    const error = new Error(`Supabase URL is invalid: ${typeof url}`)
+    console.error("Supabase configuration error:", error)
+    throw error
+  }
+
+  if (!key || key.length === 0) {
+    const error = new Error(`Supabase ANON_KEY is invalid: ${typeof key}`)
+    console.error("Supabase configuration error:", error)
+    throw error
+  }
+
+  // Additional validation - ensure they're actual strings
+  if (typeof url !== "string" || typeof key !== "string") {
+    const error = new Error(`Supabase config type error: url=${typeof url}, key=${typeof key}`)
+    console.error("Supabase configuration error:", error)
+    throw error
   }
 
   if (typeof window === "undefined") {
     // SSR: create fresh client each time
-    return createSupabaseClient()
+    const client = createSupabaseClient()
+    // Validate client was created successfully
+    if (!client || !client.auth) {
+      throw new Error("Failed to create SSR Supabase client - client is invalid")
+    }
+    return client
   }
 
   // Browser: use singleton
   if (!browserClient) {
     browserClient = createSupabaseClient()
+    // Validate client was created successfully
+    if (!browserClient || !browserClient.auth) {
+      browserClient = null // Reset on failure
+      throw new Error("Failed to create browser Supabase client - client is invalid")
+    }
   }
 
   return browserClient

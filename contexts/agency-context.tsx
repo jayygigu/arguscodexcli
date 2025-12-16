@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
-import { createClient } from "@/lib/supabase-browser"
 import { useRouter } from "next/navigation"
 import { debugLog } from "@/lib/debug-log"
 
@@ -22,6 +21,25 @@ interface AgencyContextValue {
 
 const AgencyContext = createContext<AgencyContextValue | null>(null)
 
+// Lazy Supabase client creation - only when needed
+function getSupabaseClientLazy() {
+  try {
+    // Dynamic import to ensure module is loaded
+    const { createClient } = require("@/lib/supabase-browser")
+    const client = createClient()
+    
+    // Validate client has auth property
+    if (!client || !client.auth) {
+      throw new Error("Supabase client is invalid - missing auth property")
+    }
+    
+    return client
+  } catch (error: any) {
+    console.error("Failed to create Supabase client:", error)
+    throw new Error(`Database connection error: ${error?.message || "Unknown error"}`)
+  }
+}
+
 export function AgencyProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any | null>(null)
   const [agency, setAgency] = useState<Agency | null>(null)
@@ -30,45 +48,33 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
 
   const fetchData = useCallback(async () => {
     try {
-      // #region agent log
       debugLog('agency-context.tsx:30', 'fetchData started', {}, 'J')
-      // #endregion
 
-      const supabase = createClient()
-
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      // #region agent log
-      debugLog('agency-context.tsx:38', 'getUser result', {hasUser:!!authUser,error:authError?.message}, 'J')
-      // #endregion
-
-      if (!authUser) {
-        setUser(null)
-        setAgency(null)
-        setLoading(false)
-        return
+      // Use API route instead of direct Supabase call
+      const response = await fetch("/api/auth/me")
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          setUser(null)
+          setAgency(null)
+          setLoading(false)
+          return
+        }
+        throw new Error(`Failed to fetch user: ${response.statusText}`)
       }
 
-      setUser(authUser)
+      const data = await response.json()
+      debugLog('agency-context.tsx:38', 'getUser result', {hasUser:!!data.user,hasAgency:!!data.agency}, 'J')
 
-      const { data: agencyData, error: agencyError } = await supabase
-        .from("agencies")
-        .select("id, name, logo, verification_status")
-        .eq("owner_id", authUser.id)
-        .maybeSingle()
-
-      // #region agent log
-      debugLog('agency-context.tsx:53', 'Agency query result', {hasAgency:!!agencyData,error:agencyError?.message,code:agencyError?.code}, 'K')
-      // #endregion
-
-      setAgency(agencyData)
+      if (data.user) {
+        setUser(data.user)
+        setAgency(data.agency)
+      } else {
+        setUser(null)
+        setAgency(null)
+      }
     } catch (err: any) {
-      // #region agent log
       debugLog('agency-context.tsx:58', 'fetchData error', {error:err?.message,stack:err?.stack}, 'L')
-      // #endregion
       console.error("Error fetching agency data:", err)
       setUser(null)
       setAgency(null)
@@ -80,29 +86,60 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchData()
 
-    // Create client with error handling
+    // Setup auth state listener with lazy client creation
     let subscription: any = null
-    try {
-      const supabase = createClient()
-      const {
-        data: { subscription: sub },
-      } = supabase.auth.onAuthStateChange((event) => {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          fetchData()
-        } else if (event === "SIGNED_OUT") {
-          setUser(null)
-          setAgency(null)
-          router.push("/agence/login")
+    let mounted = true
+
+    const setupAuthListener = async () => {
+      try {
+        // Only create client when actually needed, and only in browser
+        if (typeof window === "undefined") {
+          return
         }
-      })
-      subscription = sub
-    } catch (error: any) {
-      console.error("Failed to setup auth state listener:", error)
+
+        // Wait a bit to ensure everything is loaded
+        await new Promise((resolve) => setTimeout(resolve, 100))
+
+        if (!mounted) return
+
+        const supabase = getSupabaseClientLazy()
+        
+        if (!supabase || !supabase.auth) {
+          console.error("Supabase client invalid - cannot setup auth listener")
+          return
+        }
+
+        const {
+          data: { subscription: sub },
+        } = supabase.auth.onAuthStateChange((event) => {
+          if (!mounted) return
+          
+          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+            fetchData()
+          } else if (event === "SIGNED_OUT") {
+            setUser(null)
+            setAgency(null)
+            router.push("/agence/login")
+          }
+        })
+        
+        subscription = sub
+      } catch (error: any) {
+        console.error("Failed to setup auth state listener:", error)
+        // Don't throw - app should still work without auth listener
+      }
     }
 
+    setupAuthListener()
+
     return () => {
+      mounted = false
       if (subscription) {
-        subscription.unsubscribe()
+        try {
+          subscription.unsubscribe()
+        } catch (err) {
+          // Ignore unsubscribe errors
+        }
       }
     }
   }, [fetchData, router])
