@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc-client"
-import { createClient } from "@/lib/supabase-browser"
 import { formatQuebecPostalCode } from "@/constants/quebec-regions"
 import { debugLog } from "@/lib/debug-log"
 
@@ -24,7 +23,6 @@ interface CreateMandateInput {
 
 export function useMandates() {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const supabase = createClient()
   const geocodeMutation = trpc.mandates.geocode.useMutation()
 
   const createMandate = useCallback(
@@ -36,13 +34,9 @@ export function useMandates() {
       setIsSubmitting(true)
 
       try {
-        // #region agent log
         debugLog('use-mandates.ts:29', 'createMandate started', {input}, 'D')
-        // #endregion
 
-        // #region agent log
         debugLog('use-mandates.ts:38', 'Calling geocode', {postalCode:input.postal_code,city:input.city,region:input.region}, 'G')
-        // #endregion
 
         const { latitude, longitude, administrativeRegion } = await geocodeMutation.mutateAsync({
           postal_code: formatQuebecPostalCode(input.postal_code),
@@ -50,9 +44,7 @@ export function useMandates() {
           region: input.region,
         })
 
-        // #region agent log
         debugLog('use-mandates.ts:45', 'Geocode result', {latitude,longitude,administrativeRegion}, 'G')
-        // #endregion
 
         const mandateData = {
           ...input,
@@ -63,35 +55,39 @@ export function useMandates() {
           status: input.assignment_type === "direct" ? "in-progress" : "open",
         }
 
-        // #region agent log
-        debugLog('use-mandates.ts:53', 'Inserting mandate', {mandateData}, 'H')
-        // #endregion
+        debugLog('use-mandates.ts:53', 'Inserting mandate via API', {mandateData}, 'H')
 
-        const { data, error } = await supabase.from("mandates").insert(mandateData).select().single()
+        // Use API route instead of direct Supabase call
+        const response = await fetch("/api/mandates/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(mandateData),
+        })
 
-        // #region agent log
-        debugLog('use-mandates.ts:57', 'Mandate insert result', {hasData:!!data,error:error?.message,code:error?.code,details:error?.details}, 'H')
-        // #endregion
-
-        if (error) {
-          throw new Error(error.message || "Erreur lors de la création du mandat")
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+          throw new Error(errorData.error || "Erreur lors de la création du mandat")
         }
 
-        if (!data) {
+        const data = await response.json()
+
+        debugLog('use-mandates.ts:57', 'Mandate insert result', {hasData:!!data,mandateId:data?.id}, 'H')
+
+        if (!data || !data.id) {
           throw new Error("Aucune donnée retournée après la création du mandat")
         }
 
         return data
       } catch (err: any) {
-        // #region agent log
         debugLog('use-mandates.ts:68', 'createMandate error', {error:err?.message,stack:err?.stack}, 'I')
-        // #endregion
         throw err
       } finally {
         setIsSubmitting(false)
       }
     },
-    [isSubmitting, geocodeMutation, supabase],
+    [isSubmitting, geocodeMutation],
   )
 
   return {

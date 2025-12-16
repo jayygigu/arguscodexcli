@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,7 +40,8 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 
 const useGeocodeMutation = trpc.mandates.geocode.useMutation
 
-export default function CreateMandatePage() {
+// Main content component - isolated from hooks that might cause issues
+function CreateMandateContent() {
   const [currentStep, setCurrentStep] = useState<Step>("type")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -79,14 +80,13 @@ export default function CreateMandatePage() {
     }
   }
 
-  // Load investigator using API route instead of direct Supabase call
+  // Load investigator using API route
   useEffect(() => {
     async function loadInvestigator() {
       if (preselectedInvestigatorId) {
         try {
           debugLog('creer-mandat/page.tsx:83', 'Loading investigator', {investigatorId:preselectedInvestigatorId}, 'A')
           
-          // Use API route instead of direct Supabase call
           const response = await fetch(`/api/investigators/${preselectedInvestigatorId}`)
           
           if (!response.ok) {
@@ -112,11 +112,8 @@ export default function CreateMandatePage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <AgencyNav currentPage="mandats" />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -205,7 +202,6 @@ export default function CreateMandatePage() {
       if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
         debugLog('creer-mandat/page.tsx:185', 'Inserting mandate_interest', {mandateId:createdMandate.id,investigatorId:selectedInvestigator.id}, 'E')
 
-        // Use API route instead of direct Supabase call
         try {
           const interestResponse = await fetch("/api/mandates/interests", {
             method: "POST",
@@ -221,14 +217,11 @@ export default function CreateMandatePage() {
 
           if (!interestResponse.ok) {
             console.error("Error inserting mandate_interest")
-            // Continue anyway - don't block the flow
           }
         } catch (interestErr) {
           console.error("Exception inserting mandate_interest:", interestErr)
-          // Continue anyway
         }
 
-        // Call server action instead of NotificationService class
         try {
           const response = await fetch("/api/notifyInvestigatorAssigned", {
             method: "POST",
@@ -244,11 +237,9 @@ export default function CreateMandatePage() {
 
           if (!response.ok) {
             console.error("Failed to notify investigator, but continuing...")
-            // Don't throw - notification failure shouldn't block mandate creation
           }
         } catch (notifyErr) {
           console.error("Exception notifying investigator:", notifyErr)
-          // Continue anyway
         }
       }
 
@@ -587,7 +578,6 @@ export default function CreateMandatePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Type d'assignation */}
               <div className="p-6 border-2 border-muted rounded-xl bg-card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2">
@@ -608,7 +598,6 @@ export default function CreateMandatePage() {
                 )}
               </div>
 
-              {/* Détails */}
               <div className="p-6 border-2 border-muted rounded-xl bg-card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2">
@@ -626,7 +615,6 @@ export default function CreateMandatePage() {
                 </p>
               </div>
 
-              {/* Localisation */}
               <div className="p-6 border-2 border-muted rounded-xl bg-card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2">
@@ -643,7 +631,6 @@ export default function CreateMandatePage() {
                 {formData.postal_code && <p className="text-sm text-muted-foreground">{formData.postal_code}</p>}
               </div>
 
-              {/* Planning */}
               <div className="p-6 border-2 border-muted rounded-xl bg-card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2">
@@ -667,7 +654,6 @@ export default function CreateMandatePage() {
                 <p className="text-sm text-muted-foreground">Durée: {formData.duration || "Non définie"}</p>
               </div>
 
-              {/* Budget */}
               <div className="p-6 border-2 border-muted rounded-xl bg-card md:col-span-2">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2">
@@ -700,66 +686,78 @@ export default function CreateMandatePage() {
   }
 
   return (
+    <div className="mt-8">
+      {renderStepIndicator()}
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {error && (
+          <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
+            <AlertCircle className="h-5 w-5" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {renderStepContent()}
+
+        <div className="flex items-center justify-between pt-8 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={goToPreviousStep}
+            disabled={currentStep === "type" || loading}
+            className="gap-2 bg-transparent"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Précédent
+          </Button>
+
+          {currentStep === "review" ? (
+            <Button type="submit" size="lg" disabled={loading || isSubmitting} className="gap-2">
+              {loading || isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Création en cours...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Créer le mandat
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              onClick={goToNextStep}
+              disabled={!canProceedToNextStep() || loading}
+              className="gap-2"
+            >
+              Suivant
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function CreateMandatePage() {
+  return (
     <>
       <AgencyNav currentPage="mandats" />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Breadcrumb items={[{ label: "Mandats", href: "/agence/mandats" }, { label: "Créer un mandat" }]} />
-
-        <div className="mt-8">
-          {renderStepIndicator()}
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {error && (
-              <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
-                <AlertCircle className="h-5 w-5" />
-                <p>{error}</p>
-              </div>
-            )}
-
-            {renderStepContent()}
-
-            <div className="flex items-center justify-between pt-8 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={goToPreviousStep}
-                disabled={currentStep === "type" || loading}
-                className="gap-2 bg-transparent"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Précédent
-              </Button>
-
-              {currentStep === "review" ? (
-                <Button type="submit" size="lg" disabled={loading || isSubmitting} className="gap-2">
-                  {loading || isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Création en cours...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Créer le mandat
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={goToNextStep}
-                  disabled={!canProceedToNextStep() || loading}
-                  className="gap-2"
-                >
-                  Suivant
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </form>
-        </div>
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        }>
+          <CreateMandateContent />
+        </Suspense>
       </div>
     </>
   )
