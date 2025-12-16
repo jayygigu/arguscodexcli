@@ -85,8 +85,21 @@ export function useAutoPresence() {
   const supabase = useSupabaseClient()
 
   useEffect(() => {
-    // Only run if supabase is available
+    // CRITICAL: Only run if supabase is available and has valid auth
     if (!supabase) return
+    
+    // Validate supabase.auth exists and is valid
+    try {
+      if (!supabase.auth || typeof supabase.auth !== "object") {
+        return
+      }
+      
+      if (typeof supabase.auth.getSession !== "function") {
+        return
+      }
+    } catch (error) {
+      return
+    }
     
     let heartbeatInterval: NodeJS.Timeout
     let isMounted = true
@@ -96,6 +109,11 @@ export function useAutoPresence() {
       if (!isMounted || !isAuthenticated || !supabase) return
 
       try {
+        // Validate supabase.auth before accessing
+        if (!supabase.auth || typeof supabase.auth.getSession !== "function") {
+          return
+        }
+        
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -127,6 +145,11 @@ export function useAutoPresence() {
       if (!supabase) return
       
       try {
+        // Validate supabase.auth before accessing
+        if (!supabase.auth || typeof supabase.auth.getSession !== "function") {
+          return
+        }
+        
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -142,7 +165,7 @@ export function useAutoPresence() {
 
         // Set up heartbeat interval
         heartbeatInterval = setInterval(() => {
-          if (isMounted && isAuthenticated && supabase) {
+          if (isMounted && isAuthenticated && supabase && supabase.auth && typeof supabase.auth.getSession === "function") {
             updatePresence(true)
           }
         }, HEARTBEAT_INTERVAL)
