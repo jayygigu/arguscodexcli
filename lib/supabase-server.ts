@@ -11,6 +11,15 @@ function validateConfig(): void {
   if (!SUPABASE_ANON_KEY || typeof SUPABASE_ANON_KEY !== "string" || SUPABASE_ANON_KEY.trim() === "") {
     throw new Error(`Invalid SUPABASE_ANON_KEY: ${typeof SUPABASE_ANON_KEY}`)
   }
+  
+  // Additional format validation
+  if (!SUPABASE_URL.startsWith("https://") || !SUPABASE_URL.includes(".supabase.co")) {
+    throw new Error("Invalid SUPABASE_URL format")
+  }
+  
+  if (SUPABASE_ANON_KEY.length < 100) {
+    throw new Error("Invalid SUPABASE_ANON_KEY length")
+  }
 }
 
 export async function createClient() {
@@ -28,7 +37,7 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   try {
-    return createServerClient<Database>(url, key, {
+    const client = createServerClient<Database>(url, key, {
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -42,6 +51,18 @@ export async function createClient() {
         },
       },
     })
+    
+    // CRITICAL: Validate client has auth property
+    if (!client || !client.auth) {
+      throw new Error("Server Supabase client missing auth property")
+    }
+    
+    // Validate auth has required methods
+    if (typeof client.auth.getUser !== "function" || typeof client.auth.getSession !== "function") {
+      throw new Error("Server Supabase client auth missing required methods")
+    }
+    
+    return client
   } catch (error: any) {
     throw new Error(`Failed to create server Supabase client: ${error?.message || error}`)
   }
