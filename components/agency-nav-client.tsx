@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { useNotifications } from "@/hooks/use-notifications"
 import { useAutoPresence } from "@/hooks/use-presence"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 import { Bell, LogOut, MessageSquare, UserCheck, User, Menu } from "lucide-react"
 import {
@@ -35,6 +35,7 @@ export function AgencyNavClient({
   isVerified = false,
 }: AgencyNavClientProps) {
   const router = useRouter()
+  const supabase = useSupabaseClient()
   const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(
     isVerified ? agencyId : "",
   )
@@ -51,12 +52,11 @@ export function AgencyNavClient({
   ]
 
   const handleSignOut = useCallback(async () => {
-    const supabase = createClient()
     if (supabase) {
       await supabase.auth.signOut()
     }
     router.push("/agence/login")
-  }, [router])
+  }, [router, supabase])
 
   const formatRelativeTime = (timestamp: string) => {
     const now = new Date()
