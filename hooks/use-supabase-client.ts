@@ -11,7 +11,6 @@ import { useState, useEffect } from "react"
  */
 export function useSupabaseClient() {
   const [client, setClient] = useState<any>(null)
-  const [isInitializing, setIsInitializing] = useState(false)
 
   useEffect(() => {
     // Only create client after mount and in browser
@@ -19,13 +18,12 @@ export function useSupabaseClient() {
       return
     }
 
-    // Skip if already created or initializing
-    if (client || isInitializing) {
+    // Skip if already created
+    if (client) {
       return
     }
 
     let mounted = true
-    setIsInitializing(true)
 
     const initClient = async () => {
       try {
@@ -43,10 +41,7 @@ export function useSupabaseClient() {
       } catch (error: any) {
         if (!mounted) return
         console.error("[useSupabaseClient] Failed to create Supabase client:", error)
-      } finally {
-        if (mounted) {
-          setIsInitializing(false)
-        }
+        // Don't set error state, just log - client will remain null
       }
     }
 
@@ -55,7 +50,7 @@ export function useSupabaseClient() {
     return () => {
       mounted = false
     }
-  }, [client, isInitializing])
+  }, [client])
 
   return client
 }

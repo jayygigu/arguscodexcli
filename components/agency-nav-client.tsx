@@ -37,22 +37,20 @@ export function AgencyNavClient({
   const router = useRouter()
   const supabase = useSupabaseClient()
   const [mounted, setMounted] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   // Only use hooks that require Supabase after mount
   const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(
     mounted && isVerified && supabase ? agencyId : "",
   )
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Only call useAutoPresence after mount and when supabase is available
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Conditionally call useAutoPresence only when mounted and supabase is available
-  if (mounted && supabase) {
-    useAutoPresence()
-  }
+  // Call useAutoPresence hook - it handles supabase null check internally
+  useAutoPresence()
 
   const navItems = [
     { href: "/agence/dashboard", label: "Tableau de bord", key: "dashboard" },
