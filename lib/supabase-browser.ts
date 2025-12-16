@@ -15,6 +15,7 @@ const SUPABASE_ANON_KEY_INLINE =
 
 let browserClient: any = null
 let clientInitPromise: Promise<any> | null = null
+let isInitializing = false
 
 // Initialize client asynchronously - this ensures @supabase/supabase-js is never loaded during SSR
 async function initClient() {
@@ -30,14 +31,27 @@ async function initClient() {
     return clientInitPromise
   }
 
+  if (isInitializing) {
+    // Wait for ongoing initialization
+    while (isInitializing && !browserClient) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    if (browserClient) return browserClient
+  }
+
+  isInitializing = true
   clientInitPromise = (async () => {
     try {
       // Dynamic import - only loads in browser
       const { createClient: createSupabaseJSClient } = await import("@supabase/supabase-js")
       
       // CRITICAL: Use inline values directly - create fresh string copies
-      const url = String(SUPABASE_URL_INLINE).trim()
-      const key = String(SUPABASE_ANON_KEY_INLINE).trim()
+      // Store in local variables to prevent optimization
+      const urlValue = SUPABASE_URL_INLINE
+      const keyValue = SUPABASE_ANON_KEY_INLINE
+      
+      const url = String(urlValue).trim()
+      const key = String(keyValue).trim()
 
       // CRITICAL: Validate values are actual non-empty strings
       if (typeof url !== "string" || url.length === 0) {
@@ -64,27 +78,23 @@ async function initClient() {
         throw new Error(`Supabase ANON_KEY length invalid: ${trimmedKey.length}`)
       }
 
-      // CRITICAL: Store values in variables that cannot be optimized away
-      const supabaseUrl: string = trimmedUrl
-      const supabaseKey: string = trimmedKey
-
       // Final check - ensure they're still strings and not null/undefined
-      if (typeof supabaseUrl !== "string" || typeof supabaseKey !== "string") {
-        throw new Error(`Type mismatch: url=${typeof supabaseUrl}, key=${typeof supabaseKey}`)
+      if (trimmedUrl === undefined || trimmedUrl === null || trimmedKey === undefined || trimmedKey === null) {
+        throw new Error(`Values are null/undefined`)
       }
 
-      if (supabaseUrl === undefined || supabaseUrl === null || supabaseKey === undefined || supabaseKey === null) {
-        throw new Error(`Values are null/undefined: url=${supabaseUrl}, key=${supabaseKey}`)
-      }
-
-      // Create client with validated values
-      const client = createSupabaseJSClient<Database>(supabaseUrl, supabaseKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        },
-      })
+      // Create client with validated values - pass directly without intermediate variables
+      const client = createSupabaseJSClient<Database>(
+        trimmedUrl,
+        trimmedKey,
+        {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+          },
+        }
+      )
       
       // Validate client was created
       if (!client || typeof client !== "object") {
@@ -100,8 +110,10 @@ async function initClient() {
       }
       
       browserClient = client
+      isInitializing = false
       return client
     } catch (error: any) {
+      isInitializing = false
       clientInitPromise = null // Reset on failure
       const errorMsg = error?.message || String(error) || "Unknown error"
       console.error("[Supabase] Client initialization failed:", {
@@ -117,7 +129,8 @@ async function initClient() {
 }
 
 // Synchronous API for backward compatibility
-// This will return null initially and the client will be available after init
+// Starts async initialization in background, but throws error if called before ready
+// For new code, use useSupabaseClient() hook or createClientAsync()
 export function createClient() {
   // CRITICAL: Never create browser client during SSR/build
   if (typeof window === "undefined") {
@@ -129,20 +142,23 @@ export function createClient() {
     return browserClient
   }
 
-  // If initialization is in progress, we can't return synchronously
-  // This is a limitation - callers should use useSupabaseClient() hook instead
-  // But for backward compatibility, we'll start initialization and return null
-  // The hook will handle the async initialization properly
-  if (!clientInitPromise) {
+  // Start initialization in background if not already started
+  if (!clientInitPromise && !isInitializing) {
     initClient().catch((err) => {
-      console.error("[Supabase] Failed to initialize client:", err)
+      console.error("[Supabase] Background initialization failed:", err)
     })
   }
 
-  // Return null if not yet initialized - this forces callers to handle async initialization
-  // But this breaks backward compatibility...
-  // Instead, let's throw an error to force migration to useSupabaseClient()
-  throw new Error("Supabase client not yet initialized. Use useSupabaseClient() hook or await initClient() instead.")
+  // For synchronous API, we need to wait a bit for initialization
+  // This is a compromise - ideally all code should use useSupabaseClient() hook
+  // But for backward compatibility, we'll try to return the client if it's ready
+  // Otherwise throw an error to force proper async handling
+  if (isInitializing || clientInitPromise) {
+    throw new Error("Supabase client is initializing. Use useSupabaseClient() hook or await createClientAsync() instead of createClient().")
+  }
+
+  // Should not reach here, but just in case
+  throw new Error("Supabase client not initialized. Use useSupabaseClient() hook or createClientAsync().")
 }
 
 // Async version for proper initialization

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
@@ -44,7 +44,7 @@ export default function InvestigatorProfilePage() {
   const router = useRouter()
   const params = useParams()
   const investigatorId = params.investigatorId as string
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   const { agency: authAgency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
 

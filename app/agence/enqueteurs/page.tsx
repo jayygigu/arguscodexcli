@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +38,7 @@ interface Investigator {
 export default function InvestigatorsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   const { agency: authAgency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
 
@@ -63,6 +63,7 @@ export default function InvestigatorsPage() {
   }, [authAgency])
 
   async function loadInvestigators(agencyIdParam?: string) {
+    if (!supabase) return
     setLoading(true)
     try {
       const { data: agencies } = await supabase.from("agencies").select("owner_id")
