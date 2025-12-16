@@ -11,6 +11,7 @@ import { useState, useEffect } from "react"
  */
 export function useSupabaseClient() {
   const [client, setClient] = useState<any>(null)
+  const [isInitializing, setIsInitializing] = useState(false)
 
   useEffect(() => {
     // Only create client after mount and in browser
@@ -18,19 +19,19 @@ export function useSupabaseClient() {
       return
     }
 
-    // Skip if already created
-    if (client) {
+    // Skip if already created or initializing
+    if (client || isInitializing) {
       return
     }
 
     let mounted = true
+    setIsInitializing(true)
 
     const initClient = async () => {
       try {
-        // Dynamic import to avoid loading module during SSR
-        // This ensures the module is only loaded in browser
-        const { createClient } = await import("@/lib/supabase-browser")
-        const newClient = createClient()
+        // Use the async initialization function
+        const { createClientAsync } = await import("@/lib/supabase-browser")
+        const newClient = await createClientAsync()
         
         if (!mounted) return
         
@@ -42,6 +43,10 @@ export function useSupabaseClient() {
       } catch (error: any) {
         if (!mounted) return
         console.error("[useSupabaseClient] Failed to create Supabase client:", error)
+      } finally {
+        if (mounted) {
+          setIsInitializing(false)
+        }
       }
     }
 
@@ -50,7 +55,7 @@ export function useSupabaseClient() {
     return () => {
       mounted = false
     }
-  }, [client])
+  }, [client, isInitializing])
 
   return client
 }
