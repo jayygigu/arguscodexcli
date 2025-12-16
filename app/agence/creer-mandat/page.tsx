@@ -1,5 +1,9 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import type React from "react"
 import { useState, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"

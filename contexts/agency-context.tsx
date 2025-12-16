@@ -21,8 +21,13 @@ interface AgencyContextValue {
 
 const AgencyContext = createContext<AgencyContextValue | null>(null)
 
-// Lazy Supabase client creation - only when needed
+// Lazy Supabase client creation - only when needed and only in browser
 function getSupabaseClientLazy() {
+  // Never create client during SSR
+  if (typeof window === "undefined") {
+    throw new Error("Cannot create browser Supabase client during SSR")
+  }
+
   try {
     // Dynamic import to ensure module is loaded
     const { createClient } = require("@/lib/supabase-browser")

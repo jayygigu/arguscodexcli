@@ -36,6 +36,12 @@ function createSupabaseClient() {
 }
 
 export function createClient() {
+  // CRITICAL: Never create browser client during SSR/build
+  // createBrowserClient is ONLY for browser environment
+  if (typeof window === "undefined") {
+    throw new Error("createClient() from supabase-browser.ts cannot be used in SSR. Use createClient() from supabase-server.ts instead.")
+  }
+
   // Always use inline values - never rely on imports
   const url = SUPABASE_URL_INLINE.trim()
   const key = SUPABASE_ANON_KEY_INLINE.trim()
@@ -58,16 +64,6 @@ export function createClient() {
     const error = new Error(`Supabase config type error: url=${typeof url}, key=${typeof key}`)
     console.error("Supabase configuration error:", error)
     throw error
-  }
-
-  if (typeof window === "undefined") {
-    // SSR: create fresh client each time
-    const client = createSupabaseClient()
-    // Validate client was created successfully
-    if (!client || !client.auth) {
-      throw new Error("Failed to create SSR Supabase client - client is invalid")
-    }
-    return client
   }
 
   // Browser: use singleton
