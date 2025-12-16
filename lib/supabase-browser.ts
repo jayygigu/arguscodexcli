@@ -1,6 +1,6 @@
-// Try using @supabase/supabase-js directly instead of @supabase/ssr for browser client
-// This might resolve the bundling issue with createBrowserClient
-import { createClient as createSupabaseJSClient } from "@supabase/supabase-js"
+// CRITICAL: This module should NEVER execute during SSR/build
+// All imports and code execution are deferred until browser runtime
+
 import type { Database } from "@/types/database.types"
 
 // Inline Supabase configuration - ALWAYS available, no imports needed
@@ -9,18 +9,18 @@ const SUPABASE_URL_INLINE = "https://zsbtnlpppfjwurelpuli.supabase.co"
 const SUPABASE_ANON_KEY_INLINE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzYnRubHBwcGZqd3VyZWxwdWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjUyOTcsImV4cCI6MjA3NzEwMTI5N30.rgT62TSM7KoJOq01WDvIGtaHXORyLvqJX3euGpoGdB4"
 
-// Validate inline values at module load
-if (!SUPABASE_URL_INLINE || typeof SUPABASE_URL_INLINE !== "string" || SUPABASE_URL_INLINE.trim() === "") {
-  throw new Error("SUPABASE_URL_INLINE is invalid")
-}
-if (!SUPABASE_ANON_KEY_INLINE || typeof SUPABASE_ANON_KEY_INLINE !== "string" || SUPABASE_ANON_KEY_INLINE.trim() === "") {
-  throw new Error("SUPABASE_ANON_KEY_INLINE is invalid")
-}
+// CRITICAL: Do NOT validate or execute any code at module load time
+// This prevents the module from throwing errors during prerendering
+// All validation and execution happens only in browser runtime
 
-let browserClient: ReturnType<typeof createSupabaseJSClient<Database>> | null = null
+let browserClient: any = null
 
 // Factory function that creates client with guaranteed values
 function createSupabaseClient() {
+  // CRITICAL: Lazy import - only import @supabase/supabase-js when actually needed (browser only)
+  // This prevents the module from being loaded during SSR/build
+  const { createClient: createSupabaseJSClient } = require("@supabase/supabase-js")
+  
   // CRITICAL: Use inline values directly - create fresh string copies
   const url = String(SUPABASE_URL_INLINE).trim()
   const key = String(SUPABASE_ANON_KEY_INLINE).trim()
