@@ -80,20 +80,31 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchData()
 
-    const supabase = createClient()
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        fetchData()
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
-        setAgency(null)
-        router.push("/agence/login")
-      }
-    })
+    // Create client with error handling
+    let subscription: any = null
+    try {
+      const supabase = createClient()
+      const {
+        data: { subscription: sub },
+      } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          fetchData()
+        } else if (event === "SIGNED_OUT") {
+          setUser(null)
+          setAgency(null)
+          router.push("/agence/login")
+        }
+      })
+      subscription = sub
+    } catch (error: any) {
+      console.error("Failed to setup auth state listener:", error)
+    }
 
-    return () => subscription.unsubscribe()
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
   }, [fetchData, router])
 
   return (
