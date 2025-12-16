@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, X, Pencil, Check } from "lucide-react"
 import { SPECIALTIES, getSpecialtyLabel } from "@/constants/specialties"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 
 interface Props {
@@ -18,6 +18,7 @@ export function AgencyProfileServices({ specialties: initialSpecialties, agencyI
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initialSpecialties)
   const [isSaving, setIsSaving] = useState(false)
   const router = useRouter()
+  const supabase = useSupabaseClient()
 
   const toggleSpecialty = (value: string) => {
     setSelectedSpecialties((prev) => (prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]))
@@ -25,7 +26,10 @@ export function AgencyProfileServices({ specialties: initialSpecialties, agencyI
 
   const handleSave = async () => {
     setIsSaving(true)
-    const supabase = createBrowserSupabaseClient()
+    if (!supabase) {
+      setIsSaving(false)
+      return
+    }
 
     // Delete existing specialties
     await supabase.from("agency_specialties").delete().eq("agency_id", agencyId)

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Building2, MapPin, Calendar, Pencil, Check, X, Camera, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 
 interface Agency {
@@ -30,6 +30,7 @@ export function AgencyProfileHeader({ agency }: { agency: Agency }) {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const supabase = useSupabaseClient()
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -50,7 +51,10 @@ export function AgencyProfileHeader({ agency }: { agency: Agency }) {
     setIsUploadingLogo(true)
 
     try {
-      const supabase = createBrowserSupabaseClient()
+      if (!supabase) {
+        setIsUploadingLogo(false)
+        return
+      }
 
       // Create unique filename
       const fileExt = file.name.split(".").pop()
@@ -89,7 +93,10 @@ export function AgencyProfileHeader({ agency }: { agency: Agency }) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    const supabase = createBrowserSupabaseClient()
+    if (!supabase) {
+      setIsSaving(false)
+      return
+    }
 
     const { error } = await supabase
       .from("agencies")

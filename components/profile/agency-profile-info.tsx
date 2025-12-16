@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Pencil, Check, X, Mail, Phone, MapPin, User } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 
 interface Agency {
@@ -25,10 +25,14 @@ export function AgencyProfileInfo({ agency }: { agency: Agency }) {
   })
   const [isSaving, setIsSaving] = useState(false)
   const router = useRouter()
+  const supabase = useSupabaseClient()
 
   const handleSave = async () => {
     setIsSaving(true)
-    const supabase = createBrowserSupabaseClient()
+    if (!supabase) {
+      setIsSaving(false)
+      return
+    }
 
     const { error } = await supabase
       .from("agencies")
