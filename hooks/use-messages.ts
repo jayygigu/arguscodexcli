@@ -21,22 +21,40 @@ export function useMessages(params: UseMessagesParams) {
   useEffect(() => {
     if (!supabase) return
     
+    // Validate supabase.auth before accessing
+    try {
+      if (!supabase.auth || typeof supabase.auth !== "object" || typeof supabase.auth.getUser !== "function") {
+        return
+      }
+    } catch (error) {
+      return
+    }
+    
     const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        // Validate again before use
+        if (!supabase || !supabase.auth || typeof supabase.auth.getUser !== "function") {
+          return
+        }
+        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
 
-      const { data } = await supabase.from("profiles").select("id, name").eq("id", user.id).single()
+        const { data } = await supabase.from("profiles").select("id, name").eq("id", user.id).single()
 
-      if (data) setProfile(data)
+        if (data) setProfile(data)
+      } catch (error) {
+        console.error("[useMessages] Error loading profile:", error)
+      }
     }
     loadProfile()
   }, [supabase])
 
   const messagesQuery = useQuery({
     queryKey: ["messages", agencyId],
-    enabled: enabled && Boolean(agencyId) && Boolean(supabase),
+    enabled: enabled && Boolean(agencyId) && Boolean(supabase) && Boolean(supabase?.auth),
     staleTime: 10_000,
     retry: (failureCount, error) => {
       if (error instanceof Error && error.message.includes("Too Many")) {
@@ -46,7 +64,7 @@ export function useMessages(params: UseMessagesParams) {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     queryFn: async (): Promise<MessageRow[]> => {
-      if (!supabase) throw new Error("Supabase client not available")
+      if (!supabase || !supabase.auth) throw new Error("Supabase client not available")
       const { data, error } = await supabase
         .from("messages")
         .select("*")
