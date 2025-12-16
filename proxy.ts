@@ -15,7 +15,16 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   let response = NextResponse.next({ request })
 
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // Validate and ensure string values
+  const url = String(SUPABASE_URL).trim()
+  const key = String(SUPABASE_ANON_KEY).trim()
+
+  if (!url || !key) {
+    console.error("Supabase configuration invalid in proxy")
+    return response
+  }
+
+  const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
         return request.cookies.getAll()
