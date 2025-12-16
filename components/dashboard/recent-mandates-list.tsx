@@ -1,4 +1,4 @@
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Button } from "@/components/ui/button"
 
 interface Mandate {

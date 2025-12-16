@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { CheckCircle2, ArrowRight, X } from "lucide-react"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { useState } from "react"
 
 interface ActionFeedbackProps {

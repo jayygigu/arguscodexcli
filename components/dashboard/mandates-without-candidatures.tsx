@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { AlertCircle, MapPin, Calendar, Clock, AlertTriangle } from "lucide-react"
 import type { MandateWithoutCandidature } from "@/lib/dashboard-data"
 

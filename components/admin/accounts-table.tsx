@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Search, Filter, Building2, ChevronDown, ExternalLink } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

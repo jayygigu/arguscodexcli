@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Button } from "@/components/ui/button"
 import { User, MapPin, Clock, ChevronRight, Star, Navigation, AlertTriangle } from "lucide-react"
 import type { PendingCandidature } from "@/lib/dashboard-data"

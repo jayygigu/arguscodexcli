@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 // NOTE: Notifications and presence temporarily disabled to avoid Supabase init issues
