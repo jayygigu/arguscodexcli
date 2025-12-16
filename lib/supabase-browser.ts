@@ -14,12 +14,26 @@ const SUPABASE_ANON_KEY_INLINE =
 // All validation and execution happens only in browser runtime
 
 let browserClient: any = null
+let createSupabaseJSClientPromise: Promise<any> | null = null
+
+// Lazy load @supabase/supabase-js only when needed (browser only)
+async function getCreateClient() {
+  if (typeof window === "undefined") {
+    throw new Error("Cannot load @supabase/supabase-js during SSR")
+  }
+  
+  if (!createSupabaseJSClientPromise) {
+    createSupabaseJSClientPromise = import("@supabase/supabase-js").then((mod) => mod.createClient)
+  }
+  
+  return createSupabaseJSClientPromise
+}
 
 // Factory function that creates client with guaranteed values
-function createSupabaseClient() {
+async function createSupabaseClient() {
   // CRITICAL: Lazy import - only import @supabase/supabase-js when actually needed (browser only)
   // This prevents the module from being loaded during SSR/build
-  const { createClient: createSupabaseJSClient } = require("@supabase/supabase-js")
+  const createSupabaseJSClient = await getCreateClient()
   
   // CRITICAL: Use inline values directly - create fresh string copies
   const url = String(SUPABASE_URL_INLINE).trim()
@@ -110,8 +124,42 @@ export function createClient() {
 
   // Browser: use singleton
   if (!browserClient) {
+    // For synchronous API, we need to create client synchronously
+    // But we can't use async/await here, so we'll use a synchronous require
+    // This is safe because we've already checked typeof window
     try {
-      browserClient = createSupabaseClient()
+      // Use require for synchronous loading in browser
+      const { createClient: createSupabaseJSClient } = require("@supabase/supabase-js")
+      
+      const url = String(SUPABASE_URL_INLINE).trim()
+      const key = String(SUPABASE_ANON_KEY_INLINE).trim()
+
+      if (typeof url !== "string" || url.length === 0 || typeof key !== "string" || key.length === 0) {
+        throw new Error("Invalid Supabase configuration")
+      }
+
+      const trimmedUrl = url.trim()
+      const trimmedKey = key.trim()
+      
+      if (trimmedUrl.length === 0 || trimmedKey.length === 0) {
+        throw new Error("Supabase configuration contains only whitespace")
+      }
+
+      if (!trimmedUrl.startsWith("https://") || !trimmedUrl.includes(".supabase.co")) {
+        throw new Error("Supabase URL format invalid")
+      }
+
+      if (trimmedKey.length < 100) {
+        throw new Error("Supabase ANON_KEY length invalid")
+      }
+
+      browserClient = createSupabaseJSClient<Database>(trimmedUrl, trimmedKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
       
       if (!browserClient || !browserClient.auth) {
         browserClient = null
