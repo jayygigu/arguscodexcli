@@ -89,7 +89,8 @@ async function ensureClient() {
       browserClient = null // Clear invalid client
       const errorMsg = error?.message || String(error) || "Unknown error"
       console.error("[Supabase] Client initialization failed:", errorMsg, error)
-      throw new Error(`Failed to initialize Supabase client: ${errorMsg}`)
+      // Return null to avoid throwing and breaking callers
+      return null
     }
   })()
 
@@ -114,9 +115,8 @@ export function createClient() {
     console.error("[Supabase] Background initialization failed:", err)
   })
 
-  // CRITICAL: Never use require() - it can return invalid clients
-  // Always throw to force async usage
-  throw new Error("Supabase client not yet initialized. Use useSupabaseClient() hook or await createClientAsync().")
+  // Return null while initializing instead of throwing
+  return null
 }
 
 // Async version for proper initialization - ALWAYS use this in new code

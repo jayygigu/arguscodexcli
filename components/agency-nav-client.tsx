@@ -3,8 +3,9 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { useNotifications } from "@/hooks/use-notifications"
-import { useAutoPresence } from "@/hooks/use-presence"
+// NOTE: Notifications and presence temporarily disabled to avoid Supabase init issues
+// import { useNotifications } from "@/hooks/use-notifications"
+// import { useAutoPresence } from "@/hooks/use-presence"
 import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 import { Bell, LogOut, MessageSquare, UserCheck, User, Menu, FileText } from "lucide-react"
@@ -39,19 +40,18 @@ export function AgencyNavClient({
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
-  // Only use hooks that require Supabase after mount and when supabase is ready
-  // Pass null instead of empty string to prevent hook from running
-  const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(
-    mounted && isVerified && supabase && supabase.auth ? agencyId : null,
-  )
+  // Notifications disabled: use static values to avoid Supabase usage here
+  const unreadMessages = 0
+  const newApplications = 0
+  const totalNotifications = 0
+  const notifications: any[] = []
 
   // Only call useAutoPresence after mount and when supabase is available
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Call useAutoPresence hook - it handles supabase null check internally
-  useAutoPresence()
+  // Presence disabled for now
 
   const navItems = [
     { href: "/agence/dashboard", label: "Tableau de bord", key: "dashboard" },

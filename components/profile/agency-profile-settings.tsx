@@ -4,15 +4,19 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LogOut, KeyRound, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 
 export function AgencyProfileSettings({ agencyId }: { agencyId: string }) {
   const router = useRouter()
+  const supabase = useSupabaseClient()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
-    const supabase = createBrowserSupabaseClient()
+    if (!supabase) {
+      setIsLoggingOut(false)
+      return
+    }
     await supabase.auth.signOut()
     router.push("/agence/login")
   }
