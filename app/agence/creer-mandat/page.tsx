@@ -103,7 +103,22 @@ export default function CreateMandatePage() {
   }
 
   if (!agency) {
-    return null
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="max-w-md w-full space-y-4 text-center">
+          <h2 className="text-2xl font-bold">Connexion requise</h2>
+          <p className="text-muted-foreground">
+            Connecte-toi pour créer un mandat. Si tu viens de te connecter, rafraîchis la page.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => router.push("/agence/login")}>Aller à la connexion</Button>
+            <Button variant="outline" onClick={() => router.refresh()}>
+              Rafraîchir
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const canProceedToNextStep = (): boolean => {
