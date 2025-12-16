@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Button } from "@/components/ui/button"
 import { AgencyNav } from "@/components/agency-nav"
 import { getDashboardData } from "@/lib/dashboard-data"

@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { MessageSquare } from "lucide-react"
 import { AgencyNav } from "@/components/agency-nav"
 import { LoadingState } from "@/components/loading-state"

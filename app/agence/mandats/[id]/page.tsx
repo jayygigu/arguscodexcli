@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase-server"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Button } from "@/components/ui/button"
 import { getSpecialtyLabel, getPriorityLabel } from "@/constants/specialties"
 import { AgencyNav } from "@/components/agency-nav"

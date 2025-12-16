@@ -8,7 +8,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import Image from "next/image"
 import { useSupabaseClient } from "@/hooks/use-supabase-client"
 

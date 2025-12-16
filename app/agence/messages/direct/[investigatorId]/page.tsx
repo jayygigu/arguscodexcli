@@ -9,7 +9,7 @@ import { ArrowLeft, Send, Check, CheckCheck, User, Briefcase } from "lucide-reac
 import { usePresence } from "@/hooks/use-presence"
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { useAgencyAuth } from "@/hooks/use-agency-auth"
 
 export default function DirectMessagePage() {

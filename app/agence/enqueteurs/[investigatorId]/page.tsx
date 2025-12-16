@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSupabaseClient } from "@/hooks/use-supabase-client"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
 import { ArrowLeft, MapPin, Phone, Mail, Calendar, Briefcase, Award, MessageSquare } from "lucide-react"

@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { AgencyNav } from "@/components/agency-nav"
 import { Bell, MessageSquare, UserCheck, CheckCircle2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { markNotificationAsReadAction, deleteNotificationAction } from "@/actions/notification-actions"
 import { getVerifiedAgencyAuth } from "@/lib/agency-auth"
 

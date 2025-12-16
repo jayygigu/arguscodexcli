@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { Input } from "@/components/ui/input"

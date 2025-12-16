@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import Link from "next/link"
+import Link from "@/components/safe-link"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
