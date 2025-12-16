@@ -1,7 +1,11 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -21,7 +25,7 @@ export default function CandidaturesPage() {
   const [filter, setFilter] = useState("all")
   const [showIntroCard, setShowIntroCard] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   const { agency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
 
@@ -42,7 +46,7 @@ export default function CandidaturesPage() {
   }
 
   async function loadCandidatures() {
-    if (!agency) return
+    if (!agency || !supabase) return
 
     try {
       setLoading(true)
