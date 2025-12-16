@@ -4,6 +4,7 @@ import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc-client"
 import { createClient } from "@/lib/supabase-browser"
 import { formatQuebecPostalCode } from "@/constants/quebec-regions"
+import { debugLog } from "@/lib/debug-log"
 
 interface CreateMandateInput {
   title: string
@@ -36,11 +37,11 @@ export function useMandates() {
 
       try {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:29',message:'createMandate started',data:{input},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        debugLog('use-mandates.ts:29', 'createMandate started', {input}, 'D')
         // #endregion
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:38',message:'Calling geocode',data:{postalCode:input.postal_code,city:input.city,region:input.region},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+        debugLog('use-mandates.ts:38', 'Calling geocode', {postalCode:input.postal_code,city:input.city,region:input.region}, 'G')
         // #endregion
 
         const { latitude, longitude, administrativeRegion } = await geocodeMutation.mutateAsync({
@@ -50,7 +51,7 @@ export function useMandates() {
         })
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:45',message:'Geocode result',data:{latitude,longitude,administrativeRegion},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+        debugLog('use-mandates.ts:45', 'Geocode result', {latitude,longitude,administrativeRegion}, 'G')
         // #endregion
 
         const mandateData = {
@@ -63,13 +64,13 @@ export function useMandates() {
         }
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:53',message:'Inserting mandate',data:{mandateData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+        debugLog('use-mandates.ts:53', 'Inserting mandate', {mandateData}, 'H')
         // #endregion
 
         const { data, error } = await supabase.from("mandates").insert(mandateData).select().single()
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:57',message:'Mandate insert result',data:{hasData:!!data,error:error?.message,code:error?.code,details:error?.details},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+        debugLog('use-mandates.ts:57', 'Mandate insert result', {hasData:!!data,error:error?.message,code:error?.code,details:error?.details}, 'H')
         // #endregion
 
         if (error) {
@@ -83,7 +84,7 @@ export function useMandates() {
         return data
       } catch (err: any) {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-mandates.ts:68',message:'createMandate error',data:{error:err?.message,stack:err?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})}).catch(()=>{});
+        debugLog('use-mandates.ts:68', 'createMandate error', {error:err?.message,stack:err?.stack}, 'I')
         // #endregion
         throw err
       } finally {

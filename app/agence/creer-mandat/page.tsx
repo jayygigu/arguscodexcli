@@ -26,6 +26,7 @@ import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { trpc } from "@/lib/trpc-client"
 import { useAgencyAuth } from "@/hooks/use-agency-auth"
+import { debugLog } from "@/lib/debug-log"
 
 type Step = "type" | "details" | "location" | "schedule" | "budget" | "review"
 
@@ -84,7 +85,7 @@ export default function CreateMandatePage() {
       if (preselectedInvestigatorId) {
         try {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:83',message:'Loading investigator',data:{investigatorId:preselectedInvestigatorId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          debugLog('creer-mandat/page.tsx:83', 'Loading investigator', {investigatorId:preselectedInvestigatorId}, 'A')
           // #endregion
           const supabase = createClient()
           const { data, error } = await supabase
@@ -94,12 +95,12 @@ export default function CreateMandatePage() {
             .single()
 
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:92',message:'Investigator loaded',data:{hasData:!!data,error:error?.message,investigatorId:preselectedInvestigatorId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          debugLog('creer-mandat/page.tsx:92', 'Investigator loaded', {hasData:!!data,error:error?.message,investigatorId:preselectedInvestigatorId}, 'A')
           // #endregion
 
           if (error) {
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:96',message:'Investigator load error',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            debugLog('creer-mandat/page.tsx:96', 'Investigator load error', {error:error.message,code:error.code}, 'B')
             // #endregion
             console.error("Error loading investigator:", error)
             return
@@ -111,7 +112,7 @@ export default function CreateMandatePage() {
           }
         } catch (err: any) {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:105',message:'Investigator load exception',data:{error:err?.message,stack:err?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          debugLog('creer-mandat/page.tsx:105', 'Investigator load exception', {error:err?.message,stack:err?.stack}, 'C')
           // #endregion
           console.error("Exception loading investigator:", err)
         }
@@ -180,7 +181,7 @@ export default function CreateMandatePage() {
 
     try {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:150',message:'Submit started',data:{hasAgency:!!agency,agencyId:agency?.id,formData:formData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      debugLog('creer-mandat/page.tsx:150', 'Submit started', {hasAgency:!!agency,agencyId:agency?.id,formData:formData}, 'D')
       // #endregion
 
       if (!agency) {
@@ -205,13 +206,13 @@ export default function CreateMandatePage() {
       }
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:175',message:'Calling createMandate',data:{mandateData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      debugLog('creer-mandat/page.tsx:175', 'Calling createMandate', {mandateData}, 'D')
       // #endregion
 
       const createdMandate = await createMandate(mandateData)
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:179',message:'createMandate result',data:{hasMandate:!!createdMandate,mandateId:createdMandate?.id,error:createdMandate?.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      debugLog('creer-mandat/page.tsx:179', 'createMandate result', {hasMandate:!!createdMandate,mandateId:createdMandate?.id,error:createdMandate?.error}, 'D')
       // #endregion
 
       if (!createdMandate) {
@@ -220,7 +221,7 @@ export default function CreateMandatePage() {
 
       if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:185',message:'Inserting mandate_interest',data:{mandateId:createdMandate.id,investigatorId:selectedInvestigator.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        debugLog('creer-mandat/page.tsx:185', 'Inserting mandate_interest', {mandateId:createdMandate.id,investigatorId:selectedInvestigator.id}, 'E')
         // #endregion
 
         const supabase = createClient()
@@ -231,7 +232,7 @@ export default function CreateMandatePage() {
         })
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:194',message:'mandate_interest insert result',data:{error:interestError?.message,code:interestError?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        debugLog('creer-mandat/page.tsx:194', 'mandate_interest insert result', {error:interestError?.message,code:interestError?.code}, 'E')
         // #endregion
 
         if (interestError) {
@@ -266,7 +267,7 @@ export default function CreateMandatePage() {
       router.push(`/agence/mandats/${createdMandate.id}`)
     } catch (err: any) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/25000e01-2f8f-4671-80ec-977a69923072',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'creer-mandat/page.tsx:220',message:'Submit error',data:{error:err?.message,stack:err?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      debugLog('creer-mandat/page.tsx:220', 'Submit error', {error:err?.message,stack:err?.stack}, 'F')
       // #endregion
       setError(err.message || "Impossible de créer le mandat")
       setLoading(false)
