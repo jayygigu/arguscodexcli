@@ -34,7 +34,7 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { toast } from "@/hooks/use-toast"
 
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended"
@@ -70,7 +70,7 @@ interface AccountDetailProps {
 
 export function AccountDetail({ agency, currentUserId }: AccountDetailProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const [loading, setLoading] = useState(false)
   const [notes, setNotes] = useState(agency.verification_notes || "")
   const [permitExpiration, setPermitExpiration] = useState(agency.permit_expiration_date || "")

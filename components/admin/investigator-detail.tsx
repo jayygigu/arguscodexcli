@@ -34,7 +34,7 @@ import {
   Briefcase,
   Star,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { toast } from "@/hooks/use-toast"
 
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended"
@@ -100,7 +100,7 @@ const statusConfig = {
 
 export function InvestigatorDetail({ investigator, stats, currentUserId }: InvestigatorDetailProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const [loading, setLoading] = useState(false)
   const [notes, setNotes] = useState(investigator.verification_notes || "")
   const [licenseVerified, setLicenseVerified] = useState(false)

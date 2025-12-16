@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 
@@ -26,7 +26,7 @@ interface AdminSettingsProps {
 
 export function AdminSettings({ currentAdmin, allAdmins, currentUserId }: AdminSettingsProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)

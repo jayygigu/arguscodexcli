@@ -17,7 +17,7 @@ import {
   UserSearch,
   Building2,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { cn } from "@/lib/utils"
 
 const navigation = [
@@ -40,10 +40,12 @@ const navigation = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const [role, setRole] = useState<string>("admin")
 
   useEffect(() => {
+    if (!supabase) return
+    
     async function fetchRole() {
       const {
         data: { user },

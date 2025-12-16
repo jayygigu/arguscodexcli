@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Star } from "lucide-react"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { useRouter } from "next/navigation"
 
 interface RatingFormProps {
@@ -37,7 +37,11 @@ export function RatingForm({ mandateId, investigatorId, agencyId, onSuccess }: R
     setError(null)
 
     try {
-      const supabase = createClient()
+      if (!supabase) {
+        setError("Service non disponible. Veuillez réessayer plus tard.")
+        setIsSubmitting(false)
+        return
+      }
 
       const { data: existingRating } = await supabase
         .from("mandate_ratings")
