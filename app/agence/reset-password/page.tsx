@@ -1,12 +1,16 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -19,10 +23,10 @@ export default function ResetPasswordPage() {
   const [hasValidSession, setHasValidSession] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const router = useRouter()
+  const supabase = useSupabaseClient()
 
   useEffect(() => {
     const checkSession = async () => {
-      const supabase = createClient()
       if (!supabase) {
         setCheckingSession(false)
         return
@@ -46,7 +50,7 @@ export default function ResetPasswordPage() {
     }
 
     checkSession()
-  }, [])
+  }, [supabase])
 
   async function handleUpdatePassword(e: React.FormEvent) {
     e.preventDefault()
@@ -65,7 +69,6 @@ export default function ResetPasswordPage() {
       return
     }
 
-    const supabase = createClient()
     if (!supabase) {
       setError("Erreur de connexion")
       setLoading(false)

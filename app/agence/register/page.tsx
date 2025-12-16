@@ -1,10 +1,14 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { AlertCircle, Loader2 } from "lucide-react"
 
 export default function RegisterPage() {
@@ -25,7 +29,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   function validate(): string | null {
     if (!formData.contactName || formData.contactName.length < 2) return "Le nom du responsable est requis"
@@ -42,6 +46,11 @@ export default function RegisterPage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!supabase) {
+      setError("Service non disponible. Veuillez réessayer plus tard.")
+      return
+    }
 
     const validationError = validate()
     if (validationError) {

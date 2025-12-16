@@ -1,10 +1,14 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
@@ -14,13 +18,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const supabase = useSupabaseClient()
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
+    
+    if (!supabase) {
+      setError("Service non disponible. Veuillez réessayer plus tard.")
+      return
+    }
+    
     setLoading(true)
     setError("")
 
     try {
-      const supabase = createClient()
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
       if (authError) {
