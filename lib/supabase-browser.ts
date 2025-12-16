@@ -68,17 +68,27 @@ async function ensureClient() {
         },
       })
       
-      // Validate client
-      if (!client || !client.auth) {
-        throw new Error("browserClient is invalid after creation")
+      // CRITICAL: Validate client has auth property before returning
+      if (!client) {
+        throw new Error("createSupabaseJSClient returned null or undefined")
+      }
+      
+      if (!client.auth) {
+        throw new Error("browserClient.auth is undefined after creation")
+      }
+      
+      // Additional validation: ensure auth has required methods
+      if (typeof client.auth.getSession !== "function" || typeof client.auth.getUser !== "function") {
+        throw new Error("browserClient.auth is missing required methods")
       }
       
       browserClient = client
       return client
     } catch (error: any) {
       initPromise = null // Reset on failure
+      browserClient = null // Clear invalid client
       const errorMsg = error?.message || String(error) || "Unknown error"
-      console.error("[Supabase] Client initialization failed:", errorMsg)
+      console.error("[Supabase] Client initialization failed:", errorMsg, error)
       throw new Error(`Failed to initialize Supabase client: ${errorMsg}`)
     }
   })()
@@ -86,7 +96,8 @@ async function ensureClient() {
   return initPromise
 }
 
-// Synchronous API - tries to return existing client or starts async init
+// Synchronous API - ONLY returns if client is already initialized
+// Otherwise throws error to force async usage
 export function createClient() {
   // CRITICAL: Never create browser client during SSR/build
   if (typeof window === "undefined") {
@@ -94,7 +105,7 @@ export function createClient() {
   }
 
   // If client is already initialized, return it synchronously
-  if (browserClient) {
+  if (browserClient && browserClient.auth) {
     return browserClient
   }
 
@@ -103,47 +114,12 @@ export function createClient() {
     console.error("[Supabase] Background initialization failed:", err)
   })
 
-  // For synchronous API, we can't wait - return a proxy that will work once initialized
-  // Or throw error to force async usage
-  // Actually, let's try to create it synchronously using require if possible
-  try {
-    // Use require for synchronous loading (only works if module is already loaded)
-    const supabaseJS = require("@supabase/supabase-js")
-    if (supabaseJS && supabaseJS.createClient) {
-      const url = String(SUPABASE_URL_INLINE).trim()
-      const key = String(SUPABASE_ANON_KEY_INLINE).trim()
-
-      if (typeof url === "string" && url.length > 0 && typeof key === "string" && key.length > 0) {
-        const trimmedUrl = url.trim()
-        const trimmedKey = key.trim()
-        
-        if (trimmedUrl.startsWith("https://") && trimmedUrl.includes(".supabase.co") && trimmedKey.length >= 100) {
-          browserClient = supabaseJS.createClient<Database>(trimmedUrl, trimmedKey, {
-            auth: {
-              persistSession: true,
-              autoRefreshToken: true,
-              detectSessionInUrl: true,
-            },
-          })
-          
-          if (browserClient && browserClient.auth) {
-            return browserClient
-          }
-        }
-      }
-    }
-  } catch (requireError) {
-    // require() failed - module not loaded yet, will use async init
-    // This is fine, the async init will handle it
-  }
-
-  // If we get here, client is not ready yet
-  // Start async init and return null (callers should handle this)
-  // Actually, let's throw to force proper async handling
+  // CRITICAL: Never use require() - it can return invalid clients
+  // Always throw to force async usage
   throw new Error("Supabase client not yet initialized. Use useSupabaseClient() hook or await createClientAsync().")
 }
 
-// Async version for proper initialization
+// Async version for proper initialization - ALWAYS use this in new code
 export async function createClientAsync() {
   if (typeof window === "undefined") {
     throw new Error("createClientAsync() from supabase-browser.ts cannot be used in SSR.")

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Send, Check, CheckCheck, User, Briefcase } from "lucide-react"
@@ -15,7 +15,7 @@ import { useAgencyAuth } from "@/hooks/use-agency-auth"
 export default function DirectMessagePage() {
   const params = useParams()
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const investigatorId = params.investigatorId as string
