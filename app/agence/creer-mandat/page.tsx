@@ -47,6 +47,7 @@ export default function CreateMandatePage() {
   const { agency, loading: authLoading } = useAgencyAuth({ requireVerified: true })
 
   const preselectedInvestigatorId = searchParams.get("investigator")
+  const investigatorSelectionUrl = "/agence/enqueteurs?returnTo=/agence/creer-mandat"
 
   const [formData, setFormData] = useState({
     title: "",
@@ -405,7 +406,7 @@ export default function CreateMandatePage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => router.push("/agence/enqueteurs")}
+                      onClick={() => router.push(investigatorSelectionUrl)}
                     >
                       Parcourir les enquêteurs
                     </Button>
