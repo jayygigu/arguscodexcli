@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase-server"
 import { AuditLogs } from "@/components/admin/audit-logs"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function LogsPage() {
   const supabase = await createClient()
 

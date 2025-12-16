@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase-server"
 import { AdminSettings } from "@/components/admin/admin-settings"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function SettingsPage() {
   const supabase = await createClient()
 

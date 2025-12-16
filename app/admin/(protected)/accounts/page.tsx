@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase-server"
 import { AccountsTable } from "@/components/admin/accounts-table"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function AccountsPage() {
   const supabase = await createClient()
 

@@ -3,6 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Building2, Users, FileCheck, Clock, UserCheck } from "lucide-react"
 import Link from "next/link"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
 

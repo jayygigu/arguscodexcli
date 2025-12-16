@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase-server"
 import { InvestigatorDetail } from "@/components/admin/investigator-detail"
 import { notFound } from "next/navigation"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 interface Props {
   params: Promise<{ id: string }>
 }

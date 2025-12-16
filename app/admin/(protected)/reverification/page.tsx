@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase-server"
 import { ReverificationList } from "@/components/admin/reverification-list"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function ReverificationPage() {
   const supabase = await createClient()
 

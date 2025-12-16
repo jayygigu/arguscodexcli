@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase-server"
 import { notFound } from "next/navigation"
 import { AccountDetail } from "@/components/admin/account-detail"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function AccountDetailPage({
   params,
 }: {
