@@ -11,6 +11,7 @@ import { useState, useEffect } from "react"
  */
 export function useSupabaseClient() {
   const [client, setClient] = useState<any>(null)
+  const [isInitializing, setIsInitializing] = useState(false)
 
   useEffect(() => {
     // Only create client after mount and in browser
@@ -18,30 +19,50 @@ export function useSupabaseClient() {
       return
     }
 
-    // Skip if already created
-    if (client) {
+    // Skip if already created or initializing
+    if (client || isInitializing) {
       return
     }
 
     let mounted = true
+    setIsInitializing(true)
 
     const initClient = async () => {
       try {
-        // Use the async initialization function
+        // Try to use synchronous createClient first (faster)
+        // If it fails, fall back to async version
+        try {
+          const { createClient } = await import("@/lib/supabase-browser")
+          // Try synchronous version first
+          const syncClient = createClient()
+          if (mounted && syncClient && syncClient.auth) {
+            setClient(syncClient)
+            setIsInitializing(false)
+            return
+          }
+        } catch (syncError) {
+          // If sync fails, try async version
+          console.log("[useSupabaseClient] Sync failed, trying async:", syncError)
+        }
+
+        // Fall back to async version
         const { createClientAsync } = await import("@/lib/supabase-browser")
-        const newClient = await createClientAsync()
+        const asyncClient = await createClientAsync()
         
         if (!mounted) return
         
-        if (newClient && newClient.auth) {
-          setClient(newClient)
+        if (asyncClient && asyncClient.auth) {
+          setClient(asyncClient)
         } else {
           console.error("[useSupabaseClient] Client created but invalid")
         }
       } catch (error: any) {
         if (!mounted) return
         console.error("[useSupabaseClient] Failed to create Supabase client:", error)
-        // Don't set error state, just log - client will remain null
+      } finally {
+        if (mounted) {
+          setIsInitializing(false)
+        }
       }
     }
 
@@ -50,7 +71,7 @@ export function useSupabaseClient() {
     return () => {
       mounted = false
     }
-  }, [client])
+  }, [client, isInitializing])
 
   return client
 }
