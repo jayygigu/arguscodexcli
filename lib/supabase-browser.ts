@@ -1,4 +1,6 @@
-import { createBrowserClient } from "@supabase/ssr"
+// Try using @supabase/supabase-js directly instead of @supabase/ssr for browser client
+// This might resolve the bundling issue with createBrowserClient
+import { createClient as createSupabaseJSClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
 
 // Inline Supabase configuration - ALWAYS available, no imports needed
@@ -15,7 +17,7 @@ if (!SUPABASE_ANON_KEY_INLINE || typeof SUPABASE_ANON_KEY_INLINE !== "string" ||
   throw new Error("SUPABASE_ANON_KEY_INLINE is invalid")
 }
 
-let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
+let browserClient: ReturnType<typeof createSupabaseJSClient<Database>> | null = null
 
 // Factory function that creates client with guaranteed values
 function createSupabaseClient() {
@@ -23,7 +25,7 @@ function createSupabaseClient() {
   const url = String(SUPABASE_URL_INLINE).trim()
   const key = String(SUPABASE_ANON_KEY_INLINE).trim()
 
-  // CRITICAL: Validate values are actual non-empty strings before calling createBrowserClient
+  // CRITICAL: Validate values are actual non-empty strings
   if (typeof url !== "string" || url.length === 0) {
     throw new Error(`Supabase URL is invalid: type=${typeof url}, length=${url?.length || 0}`)
   }
@@ -49,36 +51,40 @@ function createSupabaseClient() {
   }
 
   // CRITICAL: Store values in variables that cannot be optimized away
-  // Pass them as separate arguments to ensure they're not undefined
   const supabaseUrl: string = trimmedUrl
   const supabaseKey: string = trimmedKey
 
-  // Final check - ensure they're still strings
+  // Final check - ensure they're still strings and not null/undefined
   if (typeof supabaseUrl !== "string" || typeof supabaseKey !== "string") {
     throw new Error(`Type mismatch: url=${typeof supabaseUrl}, key=${typeof supabaseKey}`)
   }
 
-  // CRITICAL: Verify values are not undefined or null
   if (supabaseUrl === undefined || supabaseUrl === null || supabaseKey === undefined || supabaseKey === null) {
     throw new Error(`Values are null/undefined: url=${supabaseUrl}, key=${supabaseKey}`)
   }
 
   try {
-    // Create client with validated values - pass as separate arguments
-    // This ensures the bundler doesn't modify the arguments
-    const client = createBrowserClient<Database>(supabaseUrl, supabaseKey)
+    // Use @supabase/supabase-js directly instead of @supabase/ssr
+    // This should be more reliable for browser client
+    const client = createSupabaseJSClient<Database>(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
     
     // Validate client was created
     if (!client || typeof client !== "object") {
-      throw new Error(`createBrowserClient returned invalid: ${typeof client}`)
+      throw new Error(`createClient returned invalid: ${typeof client}`)
     }
     
     if (!client.auth || typeof client.auth !== "object") {
-      throw new Error(`createBrowserClient returned client without valid auth: ${typeof client.auth}`)
+      throw new Error(`createClient returned client without valid auth: ${typeof client.auth}`)
     }
     
     if (typeof client.auth.getUser !== "function") {
-      throw new Error("createBrowserClient returned client with invalid auth.getUser")
+      throw new Error("createClient returned client with invalid auth.getUser")
     }
     
     return client
