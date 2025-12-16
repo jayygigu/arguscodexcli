@@ -5,20 +5,11 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase"
 
 // Validate configuration values are strings before use
 function validateConfig(): void {
-  if (!SUPABASE_URL || typeof SUPABASE_URL !== "string" || SUPABASE_URL.trim() === "") {
+  if (!SUPABASE_URL || typeof SUPABASE_URL !== "string") {
     throw new Error(`Invalid SUPABASE_URL: ${typeof SUPABASE_URL}`)
   }
-  if (!SUPABASE_ANON_KEY || typeof SUPABASE_ANON_KEY !== "string" || SUPABASE_ANON_KEY.trim() === "") {
+  if (!SUPABASE_ANON_KEY || typeof SUPABASE_ANON_KEY !== "string") {
     throw new Error(`Invalid SUPABASE_ANON_KEY: ${typeof SUPABASE_ANON_KEY}`)
-  }
-  
-  // Additional format validation
-  if (!SUPABASE_URL.startsWith("https://") || !SUPABASE_URL.includes(".supabase.co")) {
-    throw new Error("Invalid SUPABASE_URL format")
-  }
-  
-  if (SUPABASE_ANON_KEY.length < 100) {
-    throw new Error("Invalid SUPABASE_ANON_KEY length")
   }
 }
 
