@@ -20,18 +20,46 @@ let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = nul
 // Factory function that creates client with guaranteed values
 function createSupabaseClient() {
   // Use inline values directly - no imports, no dependencies
-  const url = SUPABASE_URL_INLINE.trim()
-  const key = SUPABASE_ANON_KEY_INLINE.trim()
+  const url = String(SUPABASE_URL_INLINE).trim()
+  const key = String(SUPABASE_ANON_KEY_INLINE).trim()
 
-  // Final validation
-  if (!url || !key) {
-    throw new Error(`Supabase configuration invalid: url=${!!url}, key=${!!key}`)
+  // CRITICAL: Validate values are actual non-empty strings before calling createBrowserClient
+  if (!url || url.length === 0 || typeof url !== "string") {
+    throw new Error(`Supabase URL is invalid: type=${typeof url}, length=${url?.length || 0}`)
+  }
+
+  if (!key || key.length === 0 || typeof key !== "string") {
+    throw new Error(`Supabase ANON_KEY is invalid: type=${typeof key}, length=${key?.length || 0}`)
+  }
+
+  // Additional validation - ensure they're not just whitespace
+  if (url.trim().length === 0 || key.trim().length === 0) {
+    throw new Error(`Supabase configuration contains only whitespace`)
+  }
+
+  // Final check - ensure values are exactly what we expect
+  if (url !== SUPABASE_URL_INLINE.trim() || key !== SUPABASE_ANON_KEY_INLINE.trim()) {
+    throw new Error(`Supabase configuration mismatch after conversion`)
   }
 
   try {
-    return createBrowserClient<Database>(url, key)
+    // Create client with validated values
+    const client = createBrowserClient<Database>(url, key)
+    
+    // Validate client was created and has required properties
+    if (!client) {
+      throw new Error("createBrowserClient returned null/undefined")
+    }
+    
+    if (!client.auth) {
+      throw new Error("createBrowserClient returned client without auth property")
+    }
+    
+    return client
   } catch (error: any) {
-    throw new Error(`Failed to create Supabase client: ${error?.message || error}`)
+    // Enhanced error message with context
+    const errorMsg = error?.message || String(error) || "Unknown error"
+    throw new Error(`Failed to create Supabase client: ${errorMsg}. URL length: ${url.length}, Key length: ${key.length}`)
   }
 }
 
@@ -42,37 +70,26 @@ export function createClient() {
     throw new Error("createClient() from supabase-browser.ts cannot be used in SSR. Use createClient() from supabase-server.ts instead.")
   }
 
-  // Always use inline values - never rely on imports
-  const url = SUPABASE_URL_INLINE.trim()
-  const key = SUPABASE_ANON_KEY_INLINE.trim()
-
-  // Validate before creating - throw early if invalid
-  if (!url || url.length === 0) {
-    const error = new Error(`Supabase URL is invalid: ${typeof url}`)
-    console.error("Supabase configuration error:", error)
-    throw error
-  }
-
-  if (!key || key.length === 0) {
-    const error = new Error(`Supabase ANON_KEY is invalid: ${typeof key}`)
-    console.error("Supabase configuration error:", error)
-    throw error
-  }
-
-  // Additional validation - ensure they're actual strings
-  if (typeof url !== "string" || typeof key !== "string") {
-    const error = new Error(`Supabase config type error: url=${typeof url}, key=${typeof key}`)
-    console.error("Supabase configuration error:", error)
-    throw error
-  }
-
   // Browser: use singleton
   if (!browserClient) {
-    browserClient = createSupabaseClient()
-    // Validate client was created successfully
-    if (!browserClient || !browserClient.auth) {
+    try {
+      browserClient = createSupabaseClient()
+      
+      // Final validation after creation
+      if (!browserClient) {
+        browserClient = null
+        throw new Error("browserClient is null after creation")
+      }
+      
+      if (!browserClient.auth) {
+        browserClient = null
+        throw new Error("browserClient.auth is undefined after creation")
+      }
+    } catch (error: any) {
       browserClient = null // Reset on failure
-      throw new Error("Failed to create browser Supabase client - client is invalid")
+      const errorMsg = error?.message || String(error) || "Unknown error"
+      console.error("Failed to create browser Supabase client:", errorMsg)
+      throw new Error(`Failed to create browser Supabase client: ${errorMsg}`)
     }
   }
 

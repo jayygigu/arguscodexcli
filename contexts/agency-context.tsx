@@ -21,30 +21,6 @@ interface AgencyContextValue {
 
 const AgencyContext = createContext<AgencyContextValue | null>(null)
 
-// Lazy Supabase client creation - only when needed and only in browser
-function getSupabaseClientLazy() {
-  // Never create client during SSR
-  if (typeof window === "undefined") {
-    throw new Error("Cannot create browser Supabase client during SSR")
-  }
-
-  try {
-    // Dynamic import to ensure module is loaded
-    const { createClient } = require("@/lib/supabase-browser")
-    const client = createClient()
-    
-    // Validate client has auth property
-    if (!client || !client.auth) {
-      throw new Error("Supabase client is invalid - missing auth property")
-    }
-    
-    return client
-  } catch (error: any) {
-    console.error("Failed to create Supabase client:", error)
-    throw new Error(`Database connection error: ${error?.message || "Unknown error"}`)
-  }
-}
-
 export function AgencyProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any | null>(null)
   const [agency, setAgency] = useState<Agency | null>(null)
@@ -91,63 +67,32 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchData()
 
-    // Setup auth state listener with lazy client creation
-    let subscription: any = null
+    // Poll for auth changes instead of using Supabase auth listener
+    // This avoids creating Supabase client in the browser
     let mounted = true
+    let pollInterval: NodeJS.Timeout | null = null
 
-    const setupAuthListener = async () => {
-      try {
-        // Only create client when actually needed, and only in browser
-        if (typeof window === "undefined") {
-          return
-        }
-
-        // Wait a bit to ensure everything is loaded
-        await new Promise((resolve) => setTimeout(resolve, 100))
-
-        if (!mounted) return
-
-        const supabase = getSupabaseClientLazy()
-        
-        if (!supabase || !supabase.auth) {
-          console.error("Supabase client invalid - cannot setup auth listener")
-          return
-        }
-
-        const {
-          data: { subscription: sub },
-        } = supabase.auth.onAuthStateChange((event) => {
-          if (!mounted) return
-          
-          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-            fetchData()
-          } else if (event === "SIGNED_OUT") {
-            setUser(null)
-            setAgency(null)
-            router.push("/agence/login")
-          }
-        })
-        
-        subscription = sub
-      } catch (error: any) {
-        console.error("Failed to setup auth state listener:", error)
-        // Don't throw - app should still work without auth listener
+    const startPolling = () => {
+      if (typeof window === "undefined") {
+        return
       }
+
+      // Poll every 30 seconds for auth changes
+      pollInterval = setInterval(() => {
+        if (!mounted) return
+        fetchData()
+      }, 30000)
     }
 
-    setupAuthListener()
+    startPolling()
 
     return () => {
       mounted = false
-      if (subscription) {
-        try {
-          subscription.unsubscribe()
-        } catch (err) {
-          // Ignore unsubscribe errors
-        }
+      if (pollInterval) {
+        clearInterval(pollInterval)
       }
     }
-  }, [fetchData, router])
+  }, [fetchData])
 
   return (
     <AgencyContext.Provider
