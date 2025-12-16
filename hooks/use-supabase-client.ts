@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo } from "react"
  * Returns null during SSR
  * Uses dynamic import to avoid loading supabase-browser module during SSR
  * Uses useState + useEffect to ensure client is only created after mount
+ * CRITICAL: Never returns a client without valid auth property
  */
 export function useSupabaseClient() {
   const [client, setClient] = useState<any>(null)
@@ -37,12 +38,29 @@ export function useSupabaseClient() {
         if (!mounted) return
         
         // CRITICAL: Validate client has auth property before setting
-        if (newClient && newClient.auth && typeof newClient.auth.getSession === "function") {
-          setClient(newClient)
-          setError(null)
-        } else {
-          throw new Error("Client created but invalid - missing auth property or methods")
+        if (!newClient) {
+          throw new Error("Client is null or undefined")
         }
+        
+        if (!newClient.auth) {
+          throw new Error("Client missing auth property")
+        }
+        
+        if (typeof newClient.auth !== "object") {
+          throw new Error("Client auth is not an object")
+        }
+        
+        if (typeof newClient.auth.getSession !== "function") {
+          throw new Error("Client auth missing getSession method")
+        }
+        
+        if (typeof newClient.auth.getUser !== "function") {
+          throw new Error("Client auth missing getUser method")
+        }
+        
+        // All validations passed, set the client
+        setClient(newClient)
+        setError(null)
       } catch (error: any) {
         if (!mounted) return
         
@@ -57,6 +75,7 @@ export function useSupabaseClient() {
         } else {
           console.error("[useSupabaseClient] Failed to create Supabase client after retries:", error)
           setError(error.message || "Failed to initialize Supabase client")
+          // Don't set client to null, keep it null
         }
       }
     }
@@ -72,12 +91,40 @@ export function useSupabaseClient() {
     }
   }, [client])
 
-  // Memoize client to prevent unnecessary re-renders
-  // Only return client if it has auth property
+  // CRITICAL: Memoize client with strict validation
+  // Only return client if it has all required properties
   return useMemo(() => {
-    if (client && client.auth && typeof client.auth.getSession === "function") {
+    try {
+      if (!client) {
+        return null
+      }
+      
+      // Validate client structure
+      if (!client.auth) {
+        console.warn("[useSupabaseClient] Client missing auth property")
+        return null
+      }
+      
+      if (typeof client.auth !== "object") {
+        console.warn("[useSupabaseClient] Client auth is not an object")
+        return null
+      }
+      
+      if (typeof client.auth.getSession !== "function") {
+        console.warn("[useSupabaseClient] Client auth missing getSession method")
+        return null
+      }
+      
+      if (typeof client.auth.getUser !== "function") {
+        console.warn("[useSupabaseClient] Client auth missing getUser method")
+        return null
+      }
+      
+      // All validations passed
       return client
+    } catch (error) {
+      console.error("[useSupabaseClient] Error validating client:", error)
+      return null
     }
-    return null
   }, [client])
 }

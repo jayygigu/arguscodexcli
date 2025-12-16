@@ -20,9 +20,29 @@ export function useNotifications(agencyId: string | null) {
   const supabase = useSupabaseClient()
   const queryClient = useQueryClient()
 
-  // Memoize enabled state to prevent unnecessary re-renders
+  // Memoize enabled state with strict validation
   const enabled = useMemo(() => {
-    return Boolean(agencyId && supabase && supabase.auth)
+    try {
+      // CRITICAL: Check if supabase exists and has auth property before accessing it
+      if (!agencyId || !supabase) {
+        return false
+      }
+      
+      // Check if auth exists and is an object
+      if (!supabase.auth || typeof supabase.auth !== "object") {
+        return false
+      }
+      
+      // Check if auth has required methods
+      if (typeof supabase.auth.getSession !== "function") {
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      // If any error occurs, disable the query
+      return false
+    }
   }, [agencyId, supabase])
 
   const { data } = useQuery({
@@ -30,45 +50,58 @@ export function useNotifications(agencyId: string | null) {
     enabled, // Only enable if supabase is available and has auth
     staleTime: 30000,
     queryFn: async (): Promise<Notification[]> => {
-      if (!supabase || !supabase.auth || !agencyId) {
+      try {
+        if (!supabase || !supabase.auth || !agencyId) {
+          return []
+        }
+        
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("agency_id", agencyId)
+          .order("created_at", { ascending: false })
+          .limit(50)
+
+        if (error) throw error
+        return data ?? []
+      } catch (error) {
+        console.error("[useNotifications] Error fetching notifications:", error)
         return []
       }
-      
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("agency_id", agencyId)
-        .order("created_at", { ascending: false })
-        .limit(50)
-
-      if (error) throw error
-      return data ?? []
     },
   })
 
   useEffect(() => {
     if (!enabled || !supabase || !supabase.auth || !agencyId) return
 
-    const channel = supabase
-      .channel(`notifications:${agencyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `agency_id=eq.${agencyId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["notifications", agencyId] })
-        },
-      )
-      .subscribe()
+    try {
+      const channel = supabase
+        .channel(`notifications:${agencyId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `agency_id=eq.${agencyId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["notifications", agencyId] })
+          },
+        )
+        .subscribe()
 
-    return () => {
-      if (supabase && channel) {
-        supabase.removeChannel(channel)
+      return () => {
+        if (supabase && channel) {
+          try {
+            supabase.removeChannel(channel)
+          } catch (error) {
+            console.error("[useNotifications] Error removing channel:", error)
+          }
+        }
       }
+    } catch (error) {
+      console.error("[useNotifications] Error setting up channel:", error)
     }
   }, [enabled, supabase, agencyId, queryClient])
 
