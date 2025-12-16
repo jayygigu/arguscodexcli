@@ -18,6 +18,7 @@ interface RatingFormProps {
 
 export function RatingForm({ mandateId, investigatorId, agencyId, onSuccess }: RatingFormProps) {
   const router = useRouter()
+  const supabase = useSupabaseClient()
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [comment, setComment] = useState("")

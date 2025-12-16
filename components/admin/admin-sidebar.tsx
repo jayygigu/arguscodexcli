@@ -59,6 +59,7 @@ export function AdminSidebar() {
   }, [supabase])
 
   const handleLogout = async () => {
+    if (!supabase) return
     await supabase.auth.signOut()
     window.location.href = "/admin/login"
   }
