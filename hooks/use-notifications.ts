@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSupabaseClient } from "./use-supabase-client"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 
 interface Notification {
   id: string
@@ -20,12 +20,17 @@ export function useNotifications(agencyId: string | null) {
   const supabase = useSupabaseClient()
   const queryClient = useQueryClient()
 
+  // Memoize enabled state to prevent unnecessary re-renders
+  const enabled = useMemo(() => {
+    return Boolean(agencyId && supabase && supabase.auth)
+  }, [agencyId, supabase])
+
   const { data } = useQuery({
     queryKey: ["notifications", agencyId],
-    enabled: Boolean(agencyId && supabase), // Only enable if supabase is available
+    enabled, // Only enable if supabase is available and has auth
     staleTime: 30000,
     queryFn: async (): Promise<Notification[]> => {
-      if (!supabase || !agencyId) {
+      if (!supabase || !supabase.auth || !agencyId) {
         return []
       }
       
@@ -42,7 +47,7 @@ export function useNotifications(agencyId: string | null) {
   })
 
   useEffect(() => {
-    if (!supabase || !agencyId) return
+    if (!enabled || !supabase || !supabase.auth || !agencyId) return
 
     const channel = supabase
       .channel(`notifications:${agencyId}`)
@@ -61,18 +66,25 @@ export function useNotifications(agencyId: string | null) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (supabase && channel) {
+        supabase.removeChannel(channel)
+      }
     }
-  }, [supabase, agencyId, queryClient])
+  }, [enabled, supabase, agencyId, queryClient])
 
-  const unreadMessages = data?.filter((n) => n.type === "message" && !n.read).length ?? 0
-  const newApplications = data?.filter((n) => n.type === "application" && !n.read).length ?? 0
-  const totalNotifications = data?.filter((n) => !n.read).length ?? 0
+  // Memoize computed values to prevent unnecessary recalculations
+  const result = useMemo(() => {
+    const unreadMessages = data?.filter((n) => n.type === "message" && !n.read).length ?? 0
+    const newApplications = data?.filter((n) => n.type === "application" && !n.read).length ?? 0
+    const totalNotifications = data?.filter((n) => !n.read).length ?? 0
 
-  return {
-    notifications: data ?? [],
-    unreadMessages,
-    newApplications,
-    totalNotifications,
-  }
+    return {
+      notifications: data ?? [],
+      unreadMessages,
+      newApplications,
+      totalNotifications,
+    }
+  }, [data])
+
+  return result
 }

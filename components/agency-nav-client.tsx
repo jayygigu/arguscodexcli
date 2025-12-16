@@ -39,9 +39,10 @@ export function AgencyNavClient({
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
-  // Only use hooks that require Supabase after mount
+  // Only use hooks that require Supabase after mount and when supabase is ready
+  // Pass null instead of empty string to prevent hook from running
   const { unreadMessages, newApplications, totalNotifications, notifications } = useNotifications(
-    mounted && isVerified && supabase ? agencyId : "",
+    mounted && isVerified && supabase && supabase.auth ? agencyId : null,
   )
 
   // Only call useAutoPresence after mount and when supabase is available

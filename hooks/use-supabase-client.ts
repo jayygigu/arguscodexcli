@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 /**
  * Hook to safely get Supabase client in browser environment
@@ -36,11 +36,12 @@ export function useSupabaseClient() {
         
         if (!mounted) return
         
-        if (newClient && newClient.auth) {
+        // CRITICAL: Validate client has auth property before setting
+        if (newClient && newClient.auth && typeof newClient.auth.getSession === "function") {
           setClient(newClient)
           setError(null)
         } else {
-          throw new Error("Client created but invalid")
+          throw new Error("Client created but invalid - missing auth property or methods")
         }
       } catch (error: any) {
         if (!mounted) return
@@ -71,5 +72,12 @@ export function useSupabaseClient() {
     }
   }, [client])
 
-  return client
+  // Memoize client to prevent unnecessary re-renders
+  // Only return client if it has auth property
+  return useMemo(() => {
+    if (client && client.auth && typeof client.auth.getSession === "function") {
+      return client
+    }
+    return null
+  }, [client])
 }
