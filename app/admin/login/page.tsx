@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await currentSupabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
         .single()
 
       if (adminError || !adminUser) {
-        await supabase.auth.signOut()
+        await currentSupabase.auth.signOut()
         setError("Vous n'avez pas les droits d'accès administrateur")
         setLoading(false)
         return

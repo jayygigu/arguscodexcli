@@ -74,7 +74,7 @@ export default function RegisterPage() {
     setError("")
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await currentSupabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -113,7 +113,7 @@ export default function RegisterPage() {
       // Check if auto-confirmed (session exists)
       const {
         data: { session },
-      } = await supabase.auth.getSession()
+      } = await currentSupabase.auth.getSession()
 
       if (session) {
         // Auto-confirmed, redirect to dashboard (proxy will route appropriately)
