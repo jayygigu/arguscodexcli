@@ -40,18 +40,6 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 
 const useGeocodeMutation = trpc.mandates.geocode.useMutation
 
-// Safe Supabase client creation with error handling
-function getSupabaseClient() {
-  try {
-    // Dynamic import to avoid issues at module load time
-    const { createClient } = require("@/lib/supabase-browser")
-    return createClient()
-  } catch (error: any) {
-    console.error("Failed to create Supabase client:", error)
-    throw new Error("Impossible de se connecter à la base de données")
-  }
-}
-
 export default function CreateMandatePage() {
   const [currentStep, setCurrentStep] = useState<Step>("type")
   const [loading, setLoading] = useState(false)
