@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase-browser"
 import { Button } from "@/components/ui/button"
 import {
   Loader2,
@@ -40,6 +39,18 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 ]
 
 const useGeocodeMutation = trpc.mandates.geocode.useMutation
+
+// Safe Supabase client creation with error handling
+function getSupabaseClient() {
+  try {
+    // Dynamic import to avoid issues at module load time
+    const { createClient } = require("@/lib/supabase-browser")
+    return createClient()
+  } catch (error: any) {
+    console.error("Failed to create Supabase client:", error)
+    throw new Error("Impossible de se connecter à la base de données")
+  }
+}
 
 export default function CreateMandatePage() {
   const [currentStep, setCurrentStep] = useState<Step>("type")
@@ -80,40 +91,30 @@ export default function CreateMandatePage() {
     }
   }
 
+  // Load investigator using API route instead of direct Supabase call
   useEffect(() => {
     async function loadInvestigator() {
       if (preselectedInvestigatorId) {
         try {
-          // #region agent log
           debugLog('creer-mandat/page.tsx:83', 'Loading investigator', {investigatorId:preselectedInvestigatorId}, 'A')
-          // #endregion
-          const supabase = createClient()
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("*, profile_specialties(specialty)")
-            .eq("id", preselectedInvestigatorId)
-            .single()
-
-          // #region agent log
-          debugLog('creer-mandat/page.tsx:92', 'Investigator loaded', {hasData:!!data,error:error?.message,investigatorId:preselectedInvestigatorId}, 'A')
-          // #endregion
-
-          if (error) {
-            // #region agent log
-            debugLog('creer-mandat/page.tsx:96', 'Investigator load error', {error:error.message,code:error.code}, 'B')
-            // #endregion
-            console.error("Error loading investigator:", error)
+          
+          // Use API route instead of direct Supabase call
+          const response = await fetch(`/api/investigators/${preselectedInvestigatorId}`)
+          
+          if (!response.ok) {
+            console.error("Error loading investigator:", response.statusText)
             return
           }
+
+          const data = await response.json()
+          debugLog('creer-mandat/page.tsx:92', 'Investigator loaded', {hasData:!!data,investigatorId:preselectedInvestigatorId}, 'A')
 
           if (data) {
             setSelectedInvestigator(data)
             setFormData((prev) => ({ ...prev, assignment_type: "direct" }))
           }
         } catch (err: any) {
-          // #region agent log
           debugLog('creer-mandat/page.tsx:105', 'Investigator load exception', {error:err?.message,stack:err?.stack}, 'C')
-          // #endregion
           console.error("Exception loading investigator:", err)
         }
       }
@@ -180,9 +181,7 @@ export default function CreateMandatePage() {
     setError("")
 
     try {
-      // #region agent log
       debugLog('creer-mandat/page.tsx:150', 'Submit started', {hasAgency:!!agency,agencyId:agency?.id,formData:formData}, 'D')
-      // #endregion
 
       if (!agency) {
         throw new Error("Agence non trouvée")
@@ -205,39 +204,40 @@ export default function CreateMandatePage() {
         status: formData.assignment_type === "direct" ? "in-progress" : "open",
       }
 
-      // #region agent log
       debugLog('creer-mandat/page.tsx:175', 'Calling createMandate', {mandateData}, 'D')
-      // #endregion
 
       const createdMandate = await createMandate(mandateData)
 
-      // #region agent log
       debugLog('creer-mandat/page.tsx:179', 'createMandate result', {hasMandate:!!createdMandate,mandateId:createdMandate?.id,error:createdMandate?.error}, 'D')
-      // #endregion
 
       if (!createdMandate) {
         throw new Error("Échec de la création du mandat")
       }
 
       if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
-        // #region agent log
         debugLog('creer-mandat/page.tsx:185', 'Inserting mandate_interest', {mandateId:createdMandate.id,investigatorId:selectedInvestigator.id}, 'E')
-        // #endregion
 
-        const supabase = createClient()
-        const { error: interestError } = await supabase.from("mandate_interests").insert({
-          mandate_id: createdMandate.id,
-          investigator_id: selectedInvestigator.id,
-          status: "accepted",
-        })
+        // Use API route instead of direct Supabase call
+        try {
+          const interestResponse = await fetch("/api/mandates/interests", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              mandate_id: createdMandate.id,
+              investigator_id: selectedInvestigator.id,
+              status: "accepted",
+            }),
+          })
 
-        // #region agent log
-        debugLog('creer-mandat/page.tsx:194', 'mandate_interest insert result', {error:interestError?.message,code:interestError?.code}, 'E')
-        // #endregion
-
-        if (interestError) {
-          console.error("Error inserting mandate_interest:", interestError)
-          // Continue anyway - don't block the flow
+          if (!interestResponse.ok) {
+            console.error("Error inserting mandate_interest")
+            // Continue anyway - don't block the flow
+          }
+        } catch (interestErr) {
+          console.error("Exception inserting mandate_interest:", interestErr)
+          // Continue anyway
         }
 
         // Call server action instead of NotificationService class
@@ -266,9 +266,7 @@ export default function CreateMandatePage() {
 
       router.push(`/agence/mandats/${createdMandate.id}`)
     } catch (err: any) {
-      // #region agent log
       debugLog('creer-mandat/page.tsx:220', 'Submit error', {error:err?.message,stack:err?.stack}, 'F')
-      // #endregion
       setError(err.message || "Impossible de créer le mandat")
       setLoading(false)
     }
