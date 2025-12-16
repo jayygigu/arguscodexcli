@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 export const dynamicParams = true
 
 import type React from "react"
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,12 +24,9 @@ import {
 } from "lucide-react"
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
-import { useMandates } from "@/hooks/use-mandates"
 import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
-import { trpc } from "@/lib/trpc-client"
 import { useAgencyAuth } from "@/hooks/use-agency-auth"
-import { debugLog } from "@/lib/debug-log"
 
 type Step = "type" | "details" | "location" | "schedule" | "budget" | "review"
 
@@ -42,14 +39,13 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: "review", label: "Révision finale", icon: Eye },
 ]
 
-const useGeocodeMutation = trpc.mandates.geocode.useMutation
-
-// Main content component - isolated from hooks that might cause issues
-function CreateMandateContent() {
+export default function CreateMandatePage() {
   const [currentStep, setCurrentStep] = useState<Step>("type")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [selectedInvestigator, setSelectedInvestigator] = useState<any>(null)
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false)
+  const [locationError, setLocationError] = useState("")
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -71,26 +67,11 @@ function CreateMandateContent() {
     assignment_type: preselectedInvestigatorId ? ("direct" as const) : ("public" as const),
   })
 
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false)
-  const [locationError, setLocationError] = useState("")
-
-  const { mutateAsync: searchLocationByPostalCode } = useGeocodeMutation()
-  const { createMandate, isSubmitting } = useMandates()
-
-  const handlePostalCodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      searchLocationByPostalCode()
-    }
-  }
-
-  // Load investigator using API route
+  // Load investigator if preselected
   useEffect(() => {
     async function loadInvestigator() {
       if (preselectedInvestigatorId) {
         try {
-          debugLog('creer-mandat/page.tsx:83', 'Loading investigator', {investigatorId:preselectedInvestigatorId}, 'A')
-          
           const response = await fetch(`/api/investigators/${preselectedInvestigatorId}`)
           
           if (!response.ok) {
@@ -99,14 +80,12 @@ function CreateMandateContent() {
           }
 
           const data = await response.json()
-          debugLog('creer-mandat/page.tsx:92', 'Investigator loaded', {hasData:!!data,investigatorId:preselectedInvestigatorId}, 'A')
 
           if (data) {
             setSelectedInvestigator(data)
             setFormData((prev) => ({ ...prev, assignment_type: "direct" }))
           }
         } catch (err: any) {
-          debugLog('creer-mandat/page.tsx:105', 'Investigator load exception', {error:err?.message,stack:err?.stack}, 'C')
           console.error("Exception loading investigator:", err)
         }
       }
@@ -114,10 +93,14 @@ function CreateMandateContent() {
     loadInvestigator()
   }, [preselectedInvestigatorId])
 
+  // Loading state
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-muted-foreground">Vérification en cours...</span>
+        </div>
       </div>
     )
   }
@@ -161,17 +144,67 @@ function CreateMandateContent() {
     }
   }
 
+  const handleSearchLocation = async () => {
+    if (!formData.postal_code || formData.postal_code.length < 6) {
+      setLocationError("Veuillez entrer un code postal valide")
+      return
+    }
+
+    setIsLoadingLocation(true)
+    setLocationError("")
+
+    try {
+      const response = await fetch("/api/mandates/geocode", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postal_code: formData.postal_code,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Erreur lors de la recherche")
+      }
+
+      const data = await response.json()
+
+      if (data.city && data.region) {
+        setFormData((prev) => ({
+          ...prev,
+          city: data.city,
+          region: data.region,
+          postal_code: data.postal_code || prev.postal_code,
+        }))
+        setLocationError("")
+      } else {
+        setLocationError("Aucune localisation trouvée pour ce code postal")
+      }
+    } catch (err: any) {
+      setLocationError(err.message || "Erreur lors de la recherche de localisation")
+    } finally {
+      setIsLoadingLocation(false)
+    }
+  }
+
+  const handlePostalCodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleSearchLocation()
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (loading || isSubmitting) return
+    if (loading) return
 
     setLoading(true)
     setError("")
 
     try {
-      debugLog('creer-mandat/page.tsx:150', 'Submit started', {hasAgency:!!agency,agencyId:agency?.id,formData:formData}, 'D')
-
       if (!agency) {
         throw new Error("Agence non trouvée")
       }
@@ -193,21 +226,30 @@ function CreateMandateContent() {
         status: formData.assignment_type === "direct" ? "in-progress" : "open",
       }
 
-      debugLog('creer-mandat/page.tsx:175', 'Calling createMandate', {mandateData}, 'D')
+      const response = await fetch("/api/mandates/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mandateData),
+      })
 
-      const createdMandate = await createMandate(mandateData)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Échec de la création du mandat")
+      }
 
-      debugLog('creer-mandat/page.tsx:179', 'createMandate result', {hasMandate:!!createdMandate,mandateId:createdMandate?.id,error:createdMandate?.error}, 'D')
+      const createdMandate = await response.json()
 
-      if (!createdMandate) {
+      if (!createdMandate || !createdMandate.id) {
         throw new Error("Échec de la création du mandat")
       }
 
-      if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate?.id) {
-        debugLog('creer-mandat/page.tsx:185', 'Inserting mandate_interest', {mandateId:createdMandate.id,investigatorId:selectedInvestigator.id}, 'E')
-
+      // Handle direct assignment
+      if (formData.assignment_type === "direct" && selectedInvestigator && createdMandate.id) {
+        // Insert mandate interest
         try {
-          const interestResponse = await fetch("/api/mandates/interests", {
+          await fetch("/api/mandates/interests", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -218,16 +260,13 @@ function CreateMandateContent() {
               status: "accepted",
             }),
           })
-
-          if (!interestResponse.ok) {
-            console.error("Error inserting mandate_interest")
-          }
         } catch (interestErr) {
           console.error("Exception inserting mandate_interest:", interestErr)
         }
 
+        // Notify investigator
         try {
-          const response = await fetch("/api/notifyInvestigatorAssigned", {
+          await fetch("/api/notifyInvestigatorAssigned", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -238,10 +277,6 @@ function CreateMandateContent() {
               mandateTitle: formData.title,
             }),
           })
-
-          if (!response.ok) {
-            console.error("Failed to notify investigator, but continuing...")
-          }
         } catch (notifyErr) {
           console.error("Exception notifying investigator:", notifyErr)
         }
@@ -249,7 +284,6 @@ function CreateMandateContent() {
 
       router.push(`/agence/mandats/${createdMandate.id}`)
     } catch (err: any) {
-      debugLog('creer-mandat/page.tsx:220', 'Submit error', {error:err?.message,stack:err?.stack}, 'F')
       setError(err.message || "Impossible de créer le mandat")
       setLoading(false)
     }
@@ -405,19 +439,13 @@ function CreateMandateContent() {
                   />
                   <Button
                     type="button"
-                    onClick={() =>
-                      searchLocationByPostalCode({
-                        postal_code: formData.postal_code,
-                        city: formData.city,
-                        region: formData.region,
-                      })
-                    }
+                    onClick={handleSearchLocation}
                     disabled={isLoadingLocation || formData.postal_code.length < 6}
                     className="h-14 px-6"
                   >
                     {isLoadingLocation ? (
                       <>
-                        <span className="animate-spin mr-2">⏳</span>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                         Recherche...
                       </>
                     ) : (
@@ -690,79 +718,67 @@ function CreateMandateContent() {
   }
 
   return (
-    <div className="mt-8">
-      {renderStepIndicator()}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {error && (
-          <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
-            <AlertCircle className="h-5 w-5" />
-            <p>{error}</p>
-          </div>
-        )}
-
-        {renderStepContent()}
-
-        <div className="flex items-center justify-between pt-8 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={goToPreviousStep}
-            disabled={currentStep === "type" || loading}
-            className="gap-2 bg-transparent"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Précédent
-          </Button>
-
-          {currentStep === "review" ? (
-            <Button type="submit" size="lg" disabled={loading || isSubmitting} className="gap-2">
-              {loading || isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Création en cours...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Créer le mandat
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              onClick={goToNextStep}
-              disabled={!canProceedToNextStep() || loading}
-              className="gap-2"
-            >
-              Suivant
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </form>
-    </div>
-  )
-}
-
-// Main page component with Suspense boundary
-export default function CreateMandatePage() {
-  return (
-    <>
+    <div className="min-h-screen bg-background">
       <AgencyNav currentPage="mandats" />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Breadcrumb items={[{ label: "Mandats", href: "/agence/mandats" }, { label: "Créer un mandat" }]} />
-        <Suspense fallback={
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        }>
-          <CreateMandateContent />
-        </Suspense>
+        
+        <div className="mt-8">
+          {renderStepIndicator()}
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {error && (
+              <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
+                <AlertCircle className="h-5 w-5" />
+                <p>{error}</p>
+              </div>
+            )}
+
+            {renderStepContent()}
+
+            <div className="flex items-center justify-between pt-8 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={goToPreviousStep}
+                disabled={currentStep === "type" || loading}
+                className="gap-2 bg-transparent"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Précédent
+              </Button>
+
+              {currentStep === "review" ? (
+                <Button type="submit" size="lg" disabled={loading} className="gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Création en cours...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Créer le mandat
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={goToNextStep}
+                  disabled={!canProceedToNextStep() || loading}
+                  className="gap-2"
+                >
+                  Suivant
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
-    </>
+    </div>
   )
 }
