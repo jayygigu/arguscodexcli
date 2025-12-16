@@ -22,6 +22,7 @@ import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { useAgencyAuth } from "@/hooks/use-agency-auth"
+import { buildAuthHeaders } from "@/lib/auth-headers"
 
 type Step = "type" | "details" | "location" | "schedule" | "budget" | "review"
 
@@ -222,11 +223,13 @@ export default function CreateMandatePage() {
         status: formData.assignment_type === "direct" ? "in-progress" : "open",
       }
 
+      const headers = await buildAuthHeaders({
+        "Content-Type": "application/json",
+      })
+
       const response = await fetch("/api/mandates/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(mandateData),
       })
 

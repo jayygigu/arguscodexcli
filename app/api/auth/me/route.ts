@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase-server"
+import { getSupabaseWithAuth } from "@/lib/server-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const { supabase, accessToken } = await getSupabaseWithAuth(request)
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = accessToken ? await supabase.auth.getUser(accessToken) : await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ user: null, agency: null }, { status: 401 })

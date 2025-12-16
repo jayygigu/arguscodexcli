@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { debugLog } from "@/lib/debug-log"
+import { buildAuthHeaders } from "@/lib/auth-headers"
 
 interface Agency {
   id: string
@@ -31,8 +32,10 @@ export function AgencyProvider({ children }: { children: ReactNode }) {
     try {
       debugLog('agency-context.tsx:30', 'fetchData started', {}, 'J')
 
+      const headers = await buildAuthHeaders()
+
       // Use API route instead of direct Supabase call
-      const response = await fetch("/api/auth/me")
+      const response = await fetch("/api/auth/me", { headers })
       
       if (!response.ok) {
         if (response.status === 401) {

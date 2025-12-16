@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase-server"
+import { getSupabaseWithAuth } from "@/lib/server-auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,12 +28,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const { supabase, accessToken } = await getSupabaseWithAuth(request)
 
     // Verify user is authenticated
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = accessToken ? await supabase.auth.getUser(accessToken) : await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
