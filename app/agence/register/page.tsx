@@ -47,7 +47,19 @@ export default function RegisterPage() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!supabase) {
+    // Wait a bit for supabase to initialize if not ready yet
+    let currentSupabase = supabase
+    if (!currentSupabase) {
+      try {
+        const { createClientAsync } = await import("@/lib/supabase-browser")
+        currentSupabase = await createClientAsync()
+      } catch (err) {
+        setError("Service non disponible. Veuillez réessayer plus tard.")
+        return
+      }
+    }
+    
+    if (!currentSupabase) {
       setError("Service non disponible. Veuillez réessayer plus tard.")
       return
     }

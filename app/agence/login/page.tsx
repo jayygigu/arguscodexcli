@@ -23,7 +23,20 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     
-    if (!supabase) {
+    // Wait a bit for supabase to initialize if not ready yet
+    let currentSupabase = supabase
+    if (!currentSupabase) {
+      // Try to get client directly
+      try {
+        const { createClientAsync } = await import("@/lib/supabase-browser")
+        currentSupabase = await createClientAsync()
+      } catch (err) {
+        setError("Service non disponible. Veuillez réessayer plus tard.")
+        return
+      }
+    }
+    
+    if (!currentSupabase) {
       setError("Service non disponible. Veuillez réessayer plus tard.")
       return
     }
@@ -32,7 +45,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await currentSupabase.auth.signInWithPassword({ email, password })
 
       if (authError) {
         if (authError.message.includes("Invalid login credentials")) {

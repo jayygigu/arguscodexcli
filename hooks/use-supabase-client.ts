@@ -11,6 +11,7 @@ import { useState, useEffect } from "react"
  */
 export function useSupabaseClient() {
   const [client, setClient] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Only create client after mount and in browser
@@ -24,6 +25,8 @@ export function useSupabaseClient() {
     }
 
     let mounted = true
+    let retryCount = 0
+    const maxRetries = 3
 
     const initClient = async () => {
       try {
@@ -35,20 +38,36 @@ export function useSupabaseClient() {
         
         if (newClient && newClient.auth) {
           setClient(newClient)
+          setError(null)
         } else {
-          console.error("[useSupabaseClient] Client created but invalid")
+          throw new Error("Client created but invalid")
         }
       } catch (error: any) {
         if (!mounted) return
-        console.error("[useSupabaseClient] Failed to create Supabase client:", error)
-        // Don't set error state, just log - client will remain null
+        
+        retryCount++
+        if (retryCount < maxRetries) {
+          // Retry after a short delay
+          setTimeout(() => {
+            if (mounted) {
+              initClient()
+            }
+          }, 500 * retryCount)
+        } else {
+          console.error("[useSupabaseClient] Failed to create Supabase client after retries:", error)
+          setError(error.message || "Failed to initialize Supabase client")
+        }
       }
     }
 
-    initClient()
+    // Small delay to ensure window is fully ready
+    const timeoutId = setTimeout(() => {
+      initClient()
+    }, 100)
 
     return () => {
       mounted = false
+      clearTimeout(timeoutId)
     }
   }, [client])
 
