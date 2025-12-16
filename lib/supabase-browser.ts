@@ -19,25 +19,20 @@ let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = nul
 
 // Factory function that creates client with guaranteed values
 function createSupabaseClient() {
-  // CRITICAL: Use inline values directly - create fresh copies to avoid any bundling issues
-  // Don't use any intermediate variables that could be optimized away
-  const url: string = SUPABASE_URL_INLINE.trim()
-  const key: string = SUPABASE_ANON_KEY_INLINE.trim()
+  // CRITICAL: Use inline values directly - create fresh string copies
+  const url = String(SUPABASE_URL_INLINE).trim()
+  const key = String(SUPABASE_ANON_KEY_INLINE).trim()
 
   // CRITICAL: Validate values are actual non-empty strings before calling createBrowserClient
   if (typeof url !== "string" || url.length === 0) {
-    const error = new Error(`Supabase URL is invalid: type=${typeof url}, length=${url?.length || 0}`)
-    console.error("[Supabase] Configuration error:", error)
-    throw error
+    throw new Error(`Supabase URL is invalid: type=${typeof url}, length=${url?.length || 0}`)
   }
 
   if (typeof key !== "string" || key.length === 0) {
-    const error = new Error(`Supabase ANON_KEY is invalid: type=${typeof key}, length=${key?.length || 0}`)
-    console.error("[Supabase] Configuration error:", error)
-    throw error
+    throw new Error(`Supabase ANON_KEY is invalid: type=${typeof key}, length=${key?.length || 0}`)
   }
 
-  // Additional validation - ensure they're not just whitespace
+  // Additional validation
   const trimmedUrl = url.trim()
   const trimmedKey = key.trim()
   
@@ -45,7 +40,6 @@ function createSupabaseClient() {
     throw new Error(`Supabase configuration contains only whitespace`)
   }
 
-  // Final validation - ensure values match expected format
   if (!trimmedUrl.startsWith("https://") || !trimmedUrl.includes(".supabase.co")) {
     throw new Error(`Supabase URL format invalid`)
   }
@@ -54,49 +48,56 @@ function createSupabaseClient() {
     throw new Error(`Supabase ANON_KEY length invalid: ${trimmedKey.length}`)
   }
 
-  // CRITICAL: Pass values directly to createBrowserClient - no intermediate processing
-  // This ensures the bundler doesn't modify or optimize away the values
+  // CRITICAL: Store values in variables that cannot be optimized away
+  // Pass them as separate arguments to ensure they're not undefined
+  const supabaseUrl: string = trimmedUrl
+  const supabaseKey: string = trimmedKey
+
+  // Final check - ensure they're still strings
+  if (typeof supabaseUrl !== "string" || typeof supabaseKey !== "string") {
+    throw new Error(`Type mismatch: url=${typeof supabaseUrl}, key=${typeof supabaseKey}`)
+  }
+
+  // CRITICAL: Verify values are not undefined or null
+  if (supabaseUrl === undefined || supabaseUrl === null || supabaseKey === undefined || supabaseKey === null) {
+    throw new Error(`Values are null/undefined: url=${supabaseUrl}, key=${supabaseKey}`)
+  }
+
   try {
-    // Create client with validated values - pass them directly as arguments
-    const client = createBrowserClient<Database>(trimmedUrl, trimmedKey)
+    // Create client with validated values - pass as separate arguments
+    // This ensures the bundler doesn't modify the arguments
+    const client = createBrowserClient<Database>(supabaseUrl, supabaseKey)
     
-    // Validate client was created and has required properties
-    if (!client) {
-      throw new Error("createBrowserClient returned null/undefined")
-    }
-    
+    // Validate client was created
     if (!client || typeof client !== "object") {
-      throw new Error(`createBrowserClient returned invalid type: ${typeof client}`)
+      throw new Error(`createBrowserClient returned invalid: ${typeof client}`)
     }
     
-    if (!client.auth) {
-      throw new Error("createBrowserClient returned client without auth property")
+    if (!client.auth || typeof client.auth !== "object") {
+      throw new Error(`createBrowserClient returned client without valid auth: ${typeof client.auth}`)
     }
     
-    if (typeof client.auth !== "object") {
-      throw new Error(`createBrowserClient returned client with invalid auth type: ${typeof client.auth}`)
-    }
-    
-    // Additional validation - ensure auth has required methods
     if (typeof client.auth.getUser !== "function") {
       throw new Error("createBrowserClient returned client with invalid auth.getUser")
     }
     
     return client
   } catch (error: any) {
-    // Enhanced error message with context
     const errorMsg = error?.message || String(error) || "Unknown error"
-    const fullError = new Error(
-      `Failed to create Supabase client: ${errorMsg}. URL: ${trimmedUrl.substring(0, 30)}..., Key length: ${trimmedKey.length}`
-    )
-    console.error("[Supabase] Client creation failed:", fullError, { url: trimmedUrl.substring(0, 30), keyLength: trimmedKey.length })
-    throw fullError
+    console.error("[Supabase] Client creation failed:", {
+      error: errorMsg,
+      urlLength: supabaseUrl.length,
+      keyLength: supabaseKey.length,
+      urlType: typeof supabaseUrl,
+      keyType: typeof supabaseKey,
+      urlValue: supabaseUrl.substring(0, 30),
+    })
+    throw new Error(`Failed to create Supabase client: ${errorMsg}`)
   }
 }
 
 export function createClient() {
   // CRITICAL: Never create browser client during SSR/build
-  // createBrowserClient is ONLY for browser environment
   if (typeof window === "undefined") {
     throw new Error("createClient() from supabase-browser.ts cannot be used in SSR. Use createClient() from supabase-server.ts instead.")
   }
@@ -106,20 +107,14 @@ export function createClient() {
     try {
       browserClient = createSupabaseClient()
       
-      // Final validation after creation
-      if (!browserClient) {
+      if (!browserClient || !browserClient.auth) {
         browserClient = null
-        throw new Error("browserClient is null after creation")
-      }
-      
-      if (!browserClient.auth) {
-        browserClient = null
-        throw new Error("browserClient.auth is undefined after creation")
+        throw new Error("browserClient is invalid after creation")
       }
     } catch (error: any) {
-      browserClient = null // Reset on failure
+      browserClient = null
       const errorMsg = error?.message || String(error) || "Unknown error"
-      console.error("[Supabase] Failed to create browser Supabase client:", errorMsg, error)
+      console.error("[Supabase] Failed to create browser client:", errorMsg)
       throw new Error(`Failed to create browser Supabase client: ${errorMsg}`)
     }
   }
