@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import type { Database } from "@/types/database.types"
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"]
@@ -18,15 +18,15 @@ const HEARTBEAT_INTERVAL = 30000 // 30 seconds
 const OFFLINE_THRESHOLD = 5 * 60 * 1000 // 5 minutes
 
 export function usePresence(userId?: string) {
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const queryClient = useQueryClient()
 
   const presenceQuery = useQuery({
     queryKey: ["presence", userId],
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && Boolean(supabase),
     staleTime: 30_000,
     queryFn: async (): Promise<UserPresence | null> => {
-      if (!userId) return null
+      if (!userId || !supabase) return null
 
       const { data, error } = await supabase
         .from("profiles")
@@ -47,7 +47,7 @@ export function usePresence(userId?: string) {
   })
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !supabase) return
 
     const channel = supabase
       .channel(`presence-${userId}`)
@@ -112,9 +112,10 @@ export function usePresence(userId?: string) {
 }
 
 export function useAutoPresence() {
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   useEffect(() => {
+    if (!supabase) return
     let heartbeatInterval: NodeJS.Timeout
     let isMounted = true
     let isAuthenticated = false

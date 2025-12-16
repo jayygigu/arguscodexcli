@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 import type { Database } from "@/types/database.types"
 
 export type MessageRow = Database["public"]["Tables"]["messages"]["Row"]
@@ -14,11 +14,13 @@ interface UseMessagesParams {
 
 export function useMessages(params: UseMessagesParams) {
   const { agencyId, enabled = true } = params
-  const supabase = createBrowserSupabaseClient()
+  const supabase = useSupabaseClient()
   const queryClient = useQueryClient()
   const [profile, setProfile] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
+    if (!supabase) return
+    
     const loadProfile = async () => {
       const {
         data: { user },
@@ -34,7 +36,7 @@ export function useMessages(params: UseMessagesParams) {
 
   const messagesQuery = useQuery({
     queryKey: ["messages", agencyId],
-    enabled: enabled && Boolean(agencyId),
+    enabled: enabled && Boolean(agencyId) && Boolean(supabase),
     staleTime: 10_000,
     retry: (failureCount, error) => {
       if (error instanceof Error && error.message.includes("Too Many")) {
@@ -44,6 +46,7 @@ export function useMessages(params: UseMessagesParams) {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     queryFn: async (): Promise<MessageRow[]> => {
+      if (!supabase) throw new Error("Supabase client not available")
       const { data, error } = await supabase
         .from("messages")
         .select("*")
@@ -56,7 +59,7 @@ export function useMessages(params: UseMessagesParams) {
   })
 
   useEffect(() => {
-    if (!enabled || !agencyId) return
+    if (!enabled || !agencyId || !supabase) return
 
     const channelName = `messages-${agencyId}`
 
@@ -115,6 +118,7 @@ export function useMessages(params: UseMessagesParams) {
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      if (!supabase) throw new Error("Supabase client not available")
       if (!profile) throw new Error("Profile not loaded")
 
       const tempId = `temp-${Date.now()}`
@@ -163,6 +167,8 @@ export function useMessages(params: UseMessagesParams) {
 
   const markAsRead = useMutation({
     mutationFn: async (messageIds: string[]) => {
+      if (!supabase) throw new Error("Supabase client not available")
+      
       queryClient.setQueryData(["messages", agencyId], (old: MessageRow[] | undefined) => {
         return (old ?? []).map((m) =>
           messageIds.includes(m.id) ? { ...m, read: true, read_at: new Date().toISOString() } : m,

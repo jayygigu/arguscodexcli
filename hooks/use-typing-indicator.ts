@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 
 interface TypingState {
   userId: string
@@ -10,13 +10,13 @@ interface TypingState {
 }
 
 export function useTypingIndicator(conversationId: string, currentUserId: string) {
-  const supabase = createBrowserSupabaseClient()
+  const supabase = useSupabaseClient()
   const [typingUsers, setTypingUsers] = useState<TypingState[]>([])
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isCurrentlyTypingRef = useRef(false)
 
   useEffect(() => {
-    if (!currentUserId || !conversationId) return
+    if (!currentUserId || !conversationId || !supabase) return
 
     const fetchTypingIndicators = async () => {
       const { data } = await supabase
@@ -92,7 +92,7 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
   }, [])
 
   const sendTypingIndicator = async (isTyping: boolean, userName: string) => {
-    if (!currentUserId) return
+    if (!currentUserId || !supabase) return
 
     try {
       await supabase.from("typing_indicators").upsert(

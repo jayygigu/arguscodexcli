@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 
 interface NotificationCounts {
   unreadMessages: number
@@ -26,15 +26,15 @@ interface NotificationsData {
 }
 
 export function useNotifications(agencyId: string | null) {
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
   const queryClient = useQueryClient()
 
   const { data } = useQuery({
     queryKey: ["notifications", agencyId],
-    enabled: Boolean(agencyId),
+    enabled: Boolean(agencyId) && Boolean(supabase),
     refetchInterval: 30000,
     queryFn: async (): Promise<NotificationsData> => {
-      if (!agencyId) {
+      if (!agencyId || !supabase) {
         return { counts: { unreadMessages: 0, newApplications: 0, unreadNotifications: 0 }, items: [] }
       }
 
@@ -149,7 +149,7 @@ export function useNotifications(agencyId: string | null) {
   })
 
   useEffect(() => {
-    if (!agencyId) return
+    if (!agencyId || !supabase) return
 
     const notificationsChannel = supabase
       .channel(`notifications-system-${agencyId}`)
