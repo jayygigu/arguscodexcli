@@ -20,7 +20,6 @@ import {
 } from "lucide-react"
 import { AgencyNav } from "@/components/agency-nav"
 import { Breadcrumb } from "@/components/breadcrumb"
-import { StepType } from "@/components/create-mandate/step-type"
 import { SPECIALTIES, PRIORITY_LEVELS } from "@/constants/specialties"
 import { useAgencyAuth } from "@/hooks/use-agency-auth"
 
@@ -201,7 +200,7 @@ export default function CreateMandatePage() {
     setError("")
 
     try {
-      if (!agency) {
+      if (!agency || !agency.id) {
         throw new Error("Agence non trouvée")
       }
 
@@ -338,12 +337,83 @@ export default function CreateMandatePage() {
     switch (currentStep) {
       case "type":
         return (
-          <StepType
-            formData={formData}
-            setFormData={setFormData}
-            selectedInvestigator={selectedInvestigator}
-            setSelectedInvestigator={setSelectedInvestigator}
-          />
+          <div className="space-y-8 max-w-4xl mx-auto">
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Type d'assignation
+              </h2>
+              <p className="text-muted-foreground text-lg">Choisissez comment assigner ce mandat</p>
+            </div>
+
+            <div className="space-y-6 p-8 border-2 border-muted rounded-2xl bg-card shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, assignment_type: "public" }))
+                    setSelectedInvestigator(null)
+                  }}
+                  className={`p-8 rounded-xl border-2 transition-all text-left ${
+                    formData.assignment_type === "public"
+                      ? "border-primary bg-primary/5 shadow-md"
+                      : "border-muted hover:border-primary/50"
+                  }`}
+                >
+                  <Building2 className={`h-8 w-8 mb-4 ${formData.assignment_type === "public" ? "text-primary" : "text-muted-foreground"}`} />
+                  <h3 className="text-xl font-bold mb-2">Mandat Public</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Le mandat sera visible par tous les enquêteurs vérifiés qui pourront postuler
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, assignment_type: "direct" }))
+                  }}
+                  className={`p-8 rounded-xl border-2 transition-all text-left ${
+                    formData.assignment_type === "direct"
+                      ? "border-primary bg-primary/5 shadow-md"
+                      : "border-muted hover:border-primary/50"
+                  }`}
+                >
+                  <Building2 className={`h-8 w-8 mb-4 ${formData.assignment_type === "direct" ? "text-primary" : "text-muted-foreground"}`} />
+                  <h3 className="text-xl font-bold mb-2">Attribution Directe</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Assignez directement le mandat à un enquêteur spécifique
+                  </p>
+                </button>
+              </div>
+
+              {formData.assignment_type === "direct" && (
+                <div className="mt-6">
+                  <label className="text-sm font-semibold mb-3 block">Sélectionner un enquêteur</label>
+                  {selectedInvestigator ? (
+                    <div className="p-4 border-2 border-primary rounded-xl bg-primary/5">
+                      <p className="font-bold">{selectedInvestigator.name}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedInvestigator(null)}
+                        className="mt-2"
+                      >
+                        Changer
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/agence/enqueteurs")}
+                    >
+                      Parcourir les enquêteurs
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )
 
       case "details":
@@ -778,3 +848,4 @@ export default function CreateMandatePage() {
     </div>
   )
 }
+
