@@ -15,11 +15,7 @@ export function useSupabaseClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Only create client after mount and in browser
-    if (typeof window === "undefined") {
-      return
-    }
-
+    if (typeof window === "undefined") return
     if (client) return
 
     let mounted = true

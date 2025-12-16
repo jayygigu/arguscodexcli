@@ -5,6 +5,9 @@ export async function buildAuthHeaders(base: Record<string, string> = {}) {
   try {
     const { createClientAsync } = await import("./supabase-browser")
     const supabase = await createClientAsync()
+    if (!supabase?.auth) {
+      throw new Error("Supabase client missing auth")
+    }
     const { data } = await supabase.auth.getSession()
     const accessToken = data.session?.access_token
     const refreshToken = data.session?.refresh_token
