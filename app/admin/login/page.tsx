@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
       }
 
       // Check if user is admin
-      const { data: adminUser, error: adminError } = await supabase
+      const { data: adminUser, error: adminError } = await currentSupabase
         .from("admin_users")
         .select("*")
         .eq("user_id", data.user.id)
