@@ -1,21 +1,31 @@
 "use client"
 
+// Force dynamic rendering - never prerender this page
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase-browser"
+import { useSupabaseClient } from "@/hooks/use-supabase-client"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const supabase = createClient()
+  const supabase = useSupabaseClient()
 
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault()
+    
+    if (!supabase) {
+      setError("Service non disponible. Veuillez réessayer plus tard.")
+      return
+    }
+    
     setLoading(true)
     setError("")
     setSuccess(false)

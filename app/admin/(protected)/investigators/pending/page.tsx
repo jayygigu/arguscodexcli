@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase-server"
 import { InvestigatorsTable } from "@/components/admin/investigators-table"
 
+// Force dynamic rendering to avoid SSR issues
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export default async function PendingInvestigatorsPage() {
   const supabase = await createClient()
 
