@@ -1,8 +1,9 @@
 // This file exports Supabase configuration constants
+// NOTE: For browser/client code, use the inline values in supabase-browser.ts instead
+// This file is kept for server-side code compatibility
 import type { Database } from "@/types/database.types"
 
 // Hardcoded Supabase configuration - ALWAYS available
-// These values ensure the app works in production even if env vars are missing
 const SUPABASE_URL_VALUE = "https://zsbtnlpppfjwurelpuli.supabase.co"
 const SUPABASE_ANON_KEY_VALUE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzYnRubHBwcGZqd3VyZWxwdWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjUyOTcsImV4cCI6MjA3NzEwMTI5N30.rgT62TSM7KoJOq01WDvIGtaHXORyLvqJX3euGpoGdB4"
