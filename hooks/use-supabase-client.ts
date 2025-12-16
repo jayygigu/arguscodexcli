@@ -20,111 +20,30 @@ export function useSupabaseClient() {
       return
     }
 
-    // Skip if already created
-    if (client) {
-      return
-    }
+    if (client) return
 
     let mounted = true
-    let retryCount = 0
-    const maxRetries = 3
 
     const initClient = async () => {
       try {
-        // Use async version which is guaranteed to work
         const { createClientAsync } = await import("@/lib/supabase-browser")
         const newClient = await createClientAsync()
-        
         if (!mounted) return
-        
-        // CRITICAL: Validate client has auth property before setting
-        if (!newClient) {
-          throw new Error("Client is null or undefined")
-        }
-        
-        if (!newClient.auth) {
-          throw new Error("Client missing auth property")
-        }
-        
-        if (typeof newClient.auth !== "object") {
-          throw new Error("Client auth is not an object")
-        }
-        
-        if (typeof newClient.auth.getSession !== "function") {
-          throw new Error("Client auth missing getSession method")
-        }
-        
-        if (typeof newClient.auth.getUser !== "function") {
-          throw new Error("Client auth missing getUser method")
-        }
-        
-        // All validations passed, set the client
         setClient(newClient)
         setError(null)
-      } catch (error: any) {
+      } catch (err: any) {
         if (!mounted) return
-        
-        retryCount++
-        if (retryCount < maxRetries) {
-          // Retry after a short delay
-          setTimeout(() => {
-            if (mounted) {
-              initClient()
-            }
-          }, 500 * retryCount)
-        } else {
-          console.error("[useSupabaseClient] Failed to create Supabase client after retries:", error)
-          setError(error.message || "Failed to initialize Supabase client")
-          // Don't set client to null, keep it null
-        }
+        console.error("[useSupabaseClient] init failed", err)
+        setError(err?.message || "Failed to initialize Supabase client")
       }
     }
 
-    // Small delay to ensure window is fully ready
-    const timeoutId = setTimeout(() => {
-      initClient()
-    }, 100)
+    initClient()
 
     return () => {
       mounted = false
-      clearTimeout(timeoutId)
     }
   }, [client])
 
-  // CRITICAL: Memoize client with strict validation
-  // Only return client if it has all required properties
-  return useMemo(() => {
-    try {
-      if (!client) {
-        return null
-      }
-      
-      // Validate client structure
-      if (!client.auth) {
-        console.warn("[useSupabaseClient] Client missing auth property")
-        return null
-      }
-      
-      if (typeof client.auth !== "object") {
-        console.warn("[useSupabaseClient] Client auth is not an object")
-        return null
-      }
-      
-      if (typeof client.auth.getSession !== "function") {
-        console.warn("[useSupabaseClient] Client auth missing getSession method")
-        return null
-      }
-      
-      if (typeof client.auth.getUser !== "function") {
-        console.warn("[useSupabaseClient] Client auth missing getUser method")
-        return null
-      }
-      
-      // All validations passed
-      return client
-    } catch (error) {
-      console.error("[useSupabaseClient] Error validating client:", error)
-      return null
-    }
-  }, [client])
+  return useMemo(() => client, [client])
 }

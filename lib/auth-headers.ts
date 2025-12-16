@@ -22,4 +22,3 @@ export async function buildAuthHeaders(base: Record<string, string> = {}) {
 
   return headers
 }
-
